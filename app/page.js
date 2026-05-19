@@ -44,10 +44,17 @@ export default function Home() {
         body: JSON.stringify({ imageData: base64Data, mimeType }),
       });
 
-      const data = await response.json();
+      const rawText = await response.text();
+
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(`Servidor retornou resposta inválida (HTTP ${response.status}): ${rawText.slice(0, 300)}`);
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro desconhecido.');
+        throw new Error(data.error || `HTTP ${response.status}: ${rawText.slice(0, 300)}`);
       }
 
       const { analysis } = data;
