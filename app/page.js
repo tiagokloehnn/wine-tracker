@@ -9,6 +9,8 @@ export default function Home() {
   const [analysisResult, setAnalysisResult] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState(null);
+  const [feedbackForm, setFeedbackForm] = useState({ rating: 0, notes: '', tastingDate: '', wouldBuyAgain: null });
 
   useEffect(() => {
     const stored = localStorage.getItem('wines');
@@ -54,7 +56,7 @@ export default function Home() {
 
       const data = await response.json();
       const text = data.content[0]?.text || '';
-      
+
       let analysis;
       try {
         analysis = JSON.parse(text);
@@ -80,11 +82,11 @@ export default function Home() {
 
   const addToCollection = () => {
     if (!currentAnalysis) return;
-    
+
     const exists = wineCollection.some(
       w => w.wine_name.toLowerCase() === currentAnalysis.wine_name.toLowerCase()
     );
-    
+
     if (!exists) {
       const newWine = {
         ...currentAnalysis,
@@ -109,6 +111,32 @@ export default function Home() {
     }
   };
 
+  const openFeedback = (idx) => {
+    const wine = wineCollection[idx];
+    setFeedbackForm({
+      rating: wine.feedback?.rating || 0,
+      notes: wine.feedback?.notes || '',
+      tastingDate: wine.feedback?.tastingDate || new Date().toISOString().split('T')[0],
+      wouldBuyAgain: wine.feedback?.wouldBuyAgain ?? null,
+    });
+    setFeedbackModal(idx);
+  };
+
+  const saveFeedback = () => {
+    const updated = wineCollection.map((w, i) =>
+      i === feedbackModal ? { ...w, feedback: feedbackForm } : w
+    );
+    setWineCollection(updated);
+    localStorage.setItem('wines', JSON.stringify(updated));
+    setFeedbackModal(null);
+  };
+
+  const formatarData = (isoDate) => {
+    if (!isoDate) return '';
+    const [y, m, d] = isoDate.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
   const searchResults = wineCollection.filter(w =>
     w.wine_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     w.region.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -119,6 +147,74 @@ export default function Home() {
     w => w.wine_name.toLowerCase() === currentAnalysis.wine_name.toLowerCase()
   );
 
+  const Estrelas = ({ nota, interativo = false, aoSelecionar }) => (
+    <div style={{ display: 'flex', gap: '4px' }}>
+      {[1, 2, 3, 4, 5].map(estrela => (
+        <span
+          key={estrela}
+          onClick={interativo ? () => aoSelecionar(estrela) : undefined}
+          style={{
+            fontSize: interativo ? '32px' : '14px',
+            cursor: interativo ? 'pointer' : 'default',
+            color: estrela <= nota ? '#FFB800' : '#ddd',
+            lineHeight: 1,
+            userSelect: 'none',
+          }}
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  );
+
+  const CardVinho = ({ vinho, idx, exibirBotoes }) => (
+    <div className="wine-card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+        <div style={{ flex: 1 }}>
+          <p className="wine-name">{vinho.wine_name}</p>
+          <p className="wine-detail">{vinho.wine_type} • {vinho.region}</p>
+          <p className="wine-detail">🍇 {vinho.grape}</p>
+          <p className="wine-detail" style={{ fontSize: '12px', marginTop: '8px' }}>
+            Adicionado em {vinho.dateAdded}
+          </p>
+        </div>
+        {exibirBotoes && (
+          <button className="btn-delete" onClick={() => deleteWine(idx)}>✕</button>
+        )}
+      </div>
+
+      {vinho.feedback && (
+        <div className="resumo-degustacao">
+          {vinho.feedback.rating > 0 && (
+            <Estrelas nota={vinho.feedback.rating} />
+          )}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+            {vinho.feedback.tastingDate && (
+              <span className="etiqueta">📅 {formatarData(vinho.feedback.tastingDate)}</span>
+            )}
+            {vinho.feedback.wouldBuyAgain === true && (
+              <span className="etiqueta etiqueta-sim">✓ Compraria novamente</span>
+            )}
+            {vinho.feedback.wouldBuyAgain === false && (
+              <span className="etiqueta etiqueta-nao">✗ Não compraria</span>
+            )}
+          </div>
+          {vinho.feedback.notes && (
+            <p style={{ fontSize: '13px', color: '#555', margin: '6px 0 0', lineHeight: 1.4 }}>
+              "{vinho.feedback.notes}"
+            </p>
+          )}
+        </div>
+      )}
+
+      {exibirBotoes && (
+        <button className="btn-degustacao" onClick={() => openFeedback(idx)}>
+          {vinho.feedback ? '✏️ Editar degustação' : '+ Registrar degustação'}
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ maxWidth: '380px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       <style>{`
@@ -126,9 +222,7 @@ export default function Home() {
         body { margin: 0; background: #f9f9f9; }
         .tab-nav {
           display: flex;
-          gap: 0;
           border-bottom: 0.5px solid #e5e5e5;
-          margin-bottom: 0;
           background: white;
           position: sticky;
           top: 0;
@@ -146,19 +240,9 @@ export default function Home() {
           color: #999;
           transition: all 0.2s;
         }
-        .tab-btn.active {
-          color: #000;
-          border-bottom-color: #000;
-        }
-        .tab-content {
-          display: none;
-          padding: 16px 12px;
-          background: white;
-          min-height: 300px;
-        }
-        .tab-content.active {
-          display: block;
-        }
+        .tab-btn.active { color: #000; border-bottom-color: #000; }
+        .tab-content { display: none; padding: 16px 12px; background: white; min-height: 300px; }
+        .tab-content.active { display: block; }
         .wine-card {
           background: white;
           border: 0.5px solid #e5e5e5;
@@ -166,16 +250,8 @@ export default function Home() {
           padding: 12px;
           margin-bottom: 12px;
         }
-        .wine-name {
-          font-weight: 500;
-          font-size: 15px;
-          margin: 0 0 8px 0;
-        }
-        .wine-detail {
-          font-size: 13px;
-          color: #666;
-          margin: 4px 0;
-        }
+        .wine-name { font-weight: 500; font-size: 15px; margin: 0 0 8px 0; }
+        .wine-detail { font-size: 13px; color: #666; margin: 4px 0; }
         .btn-upload {
           width: 100%;
           padding: 12px;
@@ -192,9 +268,7 @@ export default function Home() {
           gap: 8px;
           font-weight: 500;
         }
-        .btn-upload:hover {
-          background: #0051d5;
-        }
+        .btn-upload:hover { background: #0051d5; }
         .btn-delete {
           font-size: 12px;
           color: #ff3b30;
@@ -202,6 +276,7 @@ export default function Home() {
           background: transparent;
           border: none;
           padding: 4px 8px;
+          flex-shrink: 0;
         }
         .stat-box {
           background: #f5f5f5;
@@ -210,43 +285,18 @@ export default function Home() {
           margin-bottom: 12px;
           text-align: center;
         }
-        .stat-label {
-          font-size: 12px;
-          color: #999;
-          margin-bottom: 4px;
-        }
-        .stat-number {
-          font-size: 24px;
-          font-weight: 500;
-          color: #000;
-        }
+        .stat-label { font-size: 12px; color: #999; margin-bottom: 4px; }
+        .stat-number { font-size: 24px; font-weight: 500; color: #000; }
         .result-box {
           background: #f5f5f5;
           border-radius: 12px;
           padding: 16px;
           margin: 12px 0;
-          text-align: left;
         }
-        .result-title {
-          font-size: 16px;
-          font-weight: 500;
-          margin-bottom: 8px;
-        }
-        .badge {
-          padding: 10px;
-          border-radius: 8px;
-          text-align: center;
-          font-size: 13px;
-          margin-top: 12px;
-        }
-        .badge-new {
-          background: #e3f2fd;
-          color: #1976d2;
-        }
-        .badge-exists {
-          background: #fff3e0;
-          color: #f57c00;
-        }
+        .result-title { font-size: 16px; font-weight: 500; margin-bottom: 8px; }
+        .badge { padding: 10px; border-radius: 8px; text-align: center; font-size: 13px; margin-top: 12px; }
+        .badge-new { background: #e3f2fd; color: #1976d2; }
+        .badge-exists { background: #fff3e0; color: #f57c00; }
         .btn-primary {
           width: 100%;
           padding: 12px;
@@ -259,12 +309,8 @@ export default function Home() {
           margin-top: 12px;
           font-weight: 500;
         }
-        .btn-primary:hover {
-          background: #f5f5f5;
-        }
-        input[type="file"] {
-          display: none;
-        }
+        .btn-primary:hover { background: #f5f5f5; }
+        input[type="file"] { display: none; }
         input[type="text"] {
           width: 100%;
           padding: 10px;
@@ -273,36 +319,126 @@ export default function Home() {
           margin-bottom: 12px;
           font-size: 14px;
         }
-        .empty-state {
-          text-align: center;
-          color: #999;
-          font-size: 14px;
-          padding: 20px 0;
+        .empty-state { text-align: center; color: #999; font-size: 14px; padding: 20px 0; }
+        .loading { text-align: center; color: #999; padding: 20px; }
+        .btn-degustacao {
+          display: inline-block;
+          margin-top: 10px;
+          font-size: 12px;
+          color: #007AFF;
+          background: transparent;
+          border: 0.5px solid #007AFF;
+          border-radius: 8px;
+          padding: 5px 12px;
+          cursor: pointer;
+          font-family: inherit;
         }
-        .loading {
-          text-align: center;
-          color: #999;
-          padding: 20px;
+        .resumo-degustacao {
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 0.5px solid #f0f0f0;
+        }
+        .etiqueta {
+          font-size: 11px;
+          color: #666;
+          background: #f5f5f5;
+          border-radius: 4px;
+          padding: 2px 7px;
+        }
+        .etiqueta-sim { background: #e8f5e9; color: #2e7d32; }
+        .etiqueta-nao { background: #fce4ec; color: #c2185b; }
+        .modal-fundo {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.45);
+          z-index: 100;
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+        }
+        .modal-painel {
+          background: white;
+          border-radius: 20px 20px 0 0;
+          padding: 20px 16px 36px;
+          width: 100%;
+          max-width: 380px;
+          max-height: 88vh;
+          overflow-y: auto;
+        }
+        .modal-alca {
+          width: 36px;
+          height: 4px;
+          background: #ddd;
+          border-radius: 2px;
+          margin: 0 auto 16px;
+        }
+        .modal-titulo { font-size: 17px; font-weight: 600; margin-bottom: 20px; text-align: center; }
+        .modal-rotulo { font-size: 13px; color: #666; margin-bottom: 8px; display: block; }
+        .modal-secao { margin-bottom: 20px; }
+        textarea {
+          width: 100%;
+          padding: 10px;
+          border: 0.5px solid #e5e5e5;
+          border-radius: 8px;
+          font-size: 14px;
+          resize: none;
+          font-family: inherit;
+          line-height: 1.5;
+        }
+        input[type="date"] {
+          width: 100%;
+          padding: 10px;
+          border: 0.5px solid #e5e5e5;
+          border-radius: 8px;
+          font-size: 14px;
+          font-family: inherit;
+        }
+        .grupo-toggle { display: flex; gap: 8px; }
+        .btn-toggle {
+          flex: 1;
+          padding: 10px;
+          border: 0.5px solid #e5e5e5;
+          border-radius: 8px;
+          background: transparent;
+          cursor: pointer;
+          font-size: 14px;
+          font-family: inherit;
+        }
+        .btn-toggle-sim.ativo { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; font-weight: 500; }
+        .btn-toggle-nao.ativo { background: #fce4ec; border-color: #e91e63; color: #c2185b; font-weight: 500; }
+        .btn-salvar {
+          width: 100%;
+          padding: 14px;
+          background: #000;
+          color: white;
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          font-size: 15px;
+          font-weight: 500;
+          margin-bottom: 8px;
+          font-family: inherit;
+        }
+        .btn-cancelar {
+          width: 100%;
+          padding: 12px;
+          background: transparent;
+          color: #666;
+          border: none;
+          cursor: pointer;
+          font-size: 14px;
+          font-family: inherit;
         }
       `}</style>
 
       <div className="tab-nav">
-        <button
-          className={`tab-btn ${activeTab === 'home' ? 'active' : ''}`}
-          onClick={() => setActiveTab('home')}
-        >
+        <button className={`tab-btn ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
           🏠 Início
         </button>
-        <button
-          className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-          onClick={() => setActiveTab('history')}
-        >
+        <button className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
           📜 Histórico
         </button>
-        <button
-          className={`tab-btn ${activeTab === 'search' ? 'active' : ''}`}
-          onClick={() => setActiveTab('search')}
-        >
+        <button className={`tab-btn ${activeTab === 'search' ? 'active' : ''}`} onClick={() => setActiveTab('search')}>
           🔍 Buscar
         </button>
       </div>
@@ -315,30 +451,15 @@ export default function Home() {
 
         <label className="btn-upload" style={{ cursor: 'pointer' }}>
           📷 Fotografar vinho
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handlePhoto}
-            disabled={loading}
-          />
+          <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} disabled={loading} />
         </label>
 
         <label className="btn-upload" style={{ cursor: 'pointer' }}>
           🖼️ Escolher da galeria
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handlePhoto}
-            disabled={loading}
-          />
+          <input type="file" accept="image/*" onChange={handlePhoto} disabled={loading} />
         </label>
 
-        {loading && (
-          <div className="loading">
-            🔍 Analisando imagem com IA...
-          </div>
-        )}
+        {loading && <div className="loading">🔍 Analisando imagem com IA...</div>}
 
         {analysisResult && currentAnalysis && (
           <div>
@@ -348,9 +469,7 @@ export default function Home() {
               <div className="wine-detail">📍 Região: {currentAnalysis.region}</div>
               <div className="wine-detail">🍇 Uva: {currentAnalysis.grape}</div>
               <div className={`badge ${wineExists ? 'badge-exists' : 'badge-new'}`}>
-                {wineExists
-                  ? '✓ Você já provou este vinho!'
-                  : 'Novo vinho descoberto!'}
+                {wineExists ? '✓ Você já provou este vinho!' : 'Novo vinho descoberto!'}
               </div>
             </div>
             <button className="btn-primary" onClick={addToCollection}>
@@ -362,31 +481,10 @@ export default function Home() {
 
       <div className={`tab-content ${activeTab === 'history' ? 'active' : ''}`}>
         {wineCollection.length === 0 ? (
-          <div className="empty-state">
-            Nenhum vinho catalogado ainda. Comece fotografando um!
-          </div>
+          <div className="empty-state">Nenhum vinho catalogado ainda. Comece fotografando um!</div>
         ) : (
-          wineCollection.map((wine, idx) => (
-            <div key={idx} className="wine-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                <div>
-                  <p className="wine-name">{wine.wine_name}</p>
-                  <p className="wine-detail">
-                    {wine.wine_type} • {wine.region}
-                  </p>
-                  <p className="wine-detail">🍇 {wine.grape}</p>
-                  <p className="wine-detail" style={{ fontSize: '12px', marginTop: '8px' }}>
-                    Adicionado em {wine.dateAdded}
-                  </p>
-                </div>
-                <button
-                  className="btn-delete"
-                  onClick={() => deleteWine(idx)}
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
+          wineCollection.map((vinho, idx) => (
+            <CardVinho key={idx} vinho={vinho} idx={idx} exibirBotoes={true} />
           ))
         )}
       </div>
@@ -403,17 +501,69 @@ export default function Home() {
             {searchQuery ? 'Nenhum resultado encontrado.' : 'Comece a digitar...'}
           </div>
         ) : (
-          searchResults.map((wine, idx) => (
-            <div key={idx} className="wine-card">
-              <p className="wine-name">{wine.wine_name}</p>
-              <p className="wine-detail">
-                {wine.wine_type} • {wine.region}
-              </p>
-              <p className="wine-detail">🍇 {wine.grape}</p>
-            </div>
+          searchResults.map((vinho, idx) => (
+            <CardVinho key={idx} vinho={vinho} idx={idx} exibirBotoes={false} />
           ))
         )}
       </div>
+
+      {feedbackModal !== null && (
+        <div className="modal-fundo" onClick={() => setFeedbackModal(null)}>
+          <div className="modal-painel" onClick={e => e.stopPropagation()}>
+            <div className="modal-alca" />
+            <div className="modal-titulo">Registrar degustação</div>
+
+            <div className="modal-secao">
+              <span className="modal-rotulo">Avaliação</span>
+              <Estrelas
+                nota={feedbackForm.rating}
+                interativo
+                aoSelecionar={(v) => setFeedbackForm(f => ({ ...f, rating: v }))}
+              />
+            </div>
+
+            <div className="modal-secao">
+              <span className="modal-rotulo">Data da degustação</span>
+              <input
+                type="date"
+                value={feedbackForm.tastingDate}
+                onChange={e => setFeedbackForm(f => ({ ...f, tastingDate: e.target.value }))}
+              />
+            </div>
+
+            <div className="modal-secao">
+              <span className="modal-rotulo">Notas de degustação</span>
+              <textarea
+                rows={4}
+                placeholder="Descreva o aroma, sabor, textura..."
+                value={feedbackForm.notes}
+                onChange={e => setFeedbackForm(f => ({ ...f, notes: e.target.value }))}
+              />
+            </div>
+
+            <div className="modal-secao">
+              <span className="modal-rotulo">Compraria novamente?</span>
+              <div className="grupo-toggle">
+                <button
+                  className={`btn-toggle btn-toggle-sim ${feedbackForm.wouldBuyAgain === true ? 'ativo' : ''}`}
+                  onClick={() => setFeedbackForm(f => ({ ...f, wouldBuyAgain: true }))}
+                >
+                  Sim
+                </button>
+                <button
+                  className={`btn-toggle btn-toggle-nao ${feedbackForm.wouldBuyAgain === false ? 'ativo' : ''}`}
+                  onClick={() => setFeedbackForm(f => ({ ...f, wouldBuyAgain: false }))}
+                >
+                  Não
+                </button>
+              </div>
+            </div>
+
+            <button className="btn-salvar" onClick={saveFeedback}>Salvar</button>
+            <button className="btn-cancelar" onClick={() => setFeedbackModal(null)}>Cancelar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
