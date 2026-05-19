@@ -35,35 +35,19 @@ export default function Home() {
 
   const analyzeWine = async (base64Data) => {
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 300,
-          messages: [{
-            role: 'user',
-            content: [{
-              type: 'image',
-              source: { type: 'base64', media_type: 'image/jpeg', data: base64Data }
-            }, {
-              type: 'text',
-              text: 'Analise esta imagem de vinho e responda APENAS em JSON (sem nenhum outro texto) com este formato: {"wine_name": "Nome do vinho", "wine_type": "Tipo (Tinto/Branco/Rosé/Espumante)", "region": "Região", "grape": "Variedade da uva", "confidence": "Alta/Média/Baixa"}. Se não for uma imagem de vinho, coloque null em wine_name.'
-            }]
-          }]
-        })
+        body: JSON.stringify({ imageData: base64Data }),
       });
 
       const data = await response.json();
-      const text = data.content[0]?.text || '';
 
-      let analysis;
-      try {
-        analysis = JSON.parse(text);
-      } catch {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro desconhecido.');
       }
+
+      const { analysis } = data;
 
       if (analysis && analysis.wine_name) {
         setCurrentAnalysis(analysis);
