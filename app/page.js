@@ -11,12 +11,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState(null);
   const [feedbackForm, setFeedbackForm] = useState({ rating: 0, notes: '', tastingDate: '', wouldBuyAgain: null });
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('wines');
     if (stored) {
       setWineCollection(JSON.parse(stored));
     }
+    setMounted(true);
   }, []);
 
   const handlePhoto = async (event) => {
@@ -200,221 +202,10 @@ export default function Home() {
     </div>
   );
 
+  if (!mounted) return null;
+
   return (
-    <div style={{ maxWidth: '380px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      <style>{`
-        * { box-sizing: border-box; }
-        body { margin: 0; background: #f9f9f9; }
-        .tab-nav {
-          display: flex;
-          border-bottom: 0.5px solid #e5e5e5;
-          background: white;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-        }
-        .tab-btn {
-          flex: 1;
-          padding: 12px;
-          text-align: center;
-          background: transparent;
-          border: none;
-          border-bottom: 2px solid transparent;
-          cursor: pointer;
-          font-size: 14px;
-          color: #999;
-          transition: all 0.2s;
-        }
-        .tab-btn.active { color: #000; border-bottom-color: #000; }
-        .tab-content { display: none; padding: 16px 12px; background: white; min-height: 300px; }
-        .tab-content.active { display: block; }
-        .wine-card {
-          background: white;
-          border: 0.5px solid #e5e5e5;
-          border-radius: 12px;
-          padding: 12px;
-          margin-bottom: 12px;
-        }
-        .wine-name { font-weight: 500; font-size: 15px; margin: 0 0 8px 0; }
-        .wine-detail { font-size: 13px; color: #666; margin: 4px 0; }
-        .btn-upload {
-          width: 100%;
-          padding: 12px;
-          background: #007AFF;
-          color: white;
-          border: none;
-          border-radius: 12px;
-          cursor: pointer;
-          font-size: 14px;
-          margin-bottom: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          font-weight: 500;
-        }
-        .btn-upload:hover { background: #0051d5; }
-        .btn-delete {
-          font-size: 12px;
-          color: #ff3b30;
-          cursor: pointer;
-          background: transparent;
-          border: none;
-          padding: 4px 8px;
-          flex-shrink: 0;
-        }
-        .stat-box {
-          background: #f5f5f5;
-          border-radius: 8px;
-          padding: 12px;
-          margin-bottom: 12px;
-          text-align: center;
-        }
-        .stat-label { font-size: 12px; color: #999; margin-bottom: 4px; }
-        .stat-number { font-size: 24px; font-weight: 500; color: #000; }
-        .result-box {
-          background: #f5f5f5;
-          border-radius: 12px;
-          padding: 16px;
-          margin: 12px 0;
-        }
-        .result-title { font-size: 16px; font-weight: 500; margin-bottom: 8px; }
-        .badge { padding: 10px; border-radius: 8px; text-align: center; font-size: 13px; margin-top: 12px; }
-        .badge-new { background: #e3f2fd; color: #1976d2; }
-        .badge-exists { background: #fff3e0; color: #f57c00; }
-        .btn-primary {
-          width: 100%;
-          padding: 12px;
-          background: transparent;
-          border: 0.5px solid #ccc;
-          border-radius: 12px;
-          cursor: pointer;
-          font-size: 14px;
-          color: #007AFF;
-          margin-top: 12px;
-          font-weight: 500;
-        }
-        .btn-primary:hover { background: #f5f5f5; }
-        input[type="file"] { display: none; }
-        input[type="text"] {
-          width: 100%;
-          padding: 10px;
-          border: 0.5px solid #e5e5e5;
-          border-radius: 8px;
-          margin-bottom: 12px;
-          font-size: 14px;
-        }
-        .empty-state { text-align: center; color: #999; font-size: 14px; padding: 20px 0; }
-        .loading { text-align: center; color: #999; padding: 20px; }
-        .btn-degustacao {
-          display: inline-block;
-          margin-top: 10px;
-          font-size: 12px;
-          color: #007AFF;
-          background: transparent;
-          border: 0.5px solid #007AFF;
-          border-radius: 8px;
-          padding: 5px 12px;
-          cursor: pointer;
-          font-family: inherit;
-        }
-        .resumo-degustacao {
-          margin-top: 10px;
-          padding-top: 10px;
-          border-top: 0.5px solid #f0f0f0;
-        }
-        .etiqueta {
-          font-size: 11px;
-          color: #666;
-          background: #f5f5f5;
-          border-radius: 4px;
-          padding: 2px 7px;
-        }
-        .etiqueta-sim { background: #e8f5e9; color: #2e7d32; }
-        .etiqueta-nao { background: #fce4ec; color: #c2185b; }
-        .modal-fundo {
-          position: fixed;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.45);
-          z-index: 100;
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
-        }
-        .modal-painel {
-          background: white;
-          border-radius: 20px 20px 0 0;
-          padding: 20px 16px 36px;
-          width: 100%;
-          max-width: 380px;
-          max-height: 88vh;
-          overflow-y: auto;
-        }
-        .modal-alca {
-          width: 36px;
-          height: 4px;
-          background: #ddd;
-          border-radius: 2px;
-          margin: 0 auto 16px;
-        }
-        .modal-titulo { font-size: 17px; font-weight: 600; margin-bottom: 20px; text-align: center; }
-        .modal-rotulo { font-size: 13px; color: #666; margin-bottom: 8px; display: block; }
-        .modal-secao { margin-bottom: 20px; }
-        textarea {
-          width: 100%;
-          padding: 10px;
-          border: 0.5px solid #e5e5e5;
-          border-radius: 8px;
-          font-size: 14px;
-          resize: none;
-          font-family: inherit;
-          line-height: 1.5;
-        }
-        input[type="date"] {
-          width: 100%;
-          padding: 10px;
-          border: 0.5px solid #e5e5e5;
-          border-radius: 8px;
-          font-size: 14px;
-          font-family: inherit;
-        }
-        .grupo-toggle { display: flex; gap: 8px; }
-        .btn-toggle {
-          flex: 1;
-          padding: 10px;
-          border: 0.5px solid #e5e5e5;
-          border-radius: 8px;
-          background: transparent;
-          cursor: pointer;
-          font-size: 14px;
-          font-family: inherit;
-        }
-        .btn-toggle-sim.ativo { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; font-weight: 500; }
-        .btn-toggle-nao.ativo { background: #fce4ec; border-color: #e91e63; color: #c2185b; font-weight: 500; }
-        .btn-salvar {
-          width: 100%;
-          padding: 14px;
-          background: #000;
-          color: white;
-          border: none;
-          border-radius: 12px;
-          cursor: pointer;
-          font-size: 15px;
-          font-weight: 500;
-          margin-bottom: 8px;
-          font-family: inherit;
-        }
-        .btn-cancelar {
-          width: 100%;
-          padding: 12px;
-          background: transparent;
-          color: #666;
-          border: none;
-          cursor: pointer;
-          font-size: 14px;
-          font-family: inherit;
-        }
-      `}</style>
+    <div style={{ maxWidth: '380px', margin: '0 auto' }}>
 
       <div className="tab-nav">
         <button className={`tab-btn ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
