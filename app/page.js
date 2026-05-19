@@ -58,7 +58,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error(error);
-      alert('Erro ao analisar a imagem. Verifique sua conexão.');
+      alert(`Erro: ${error.message}`);
     } finally {
       setLoading(false);
     }
