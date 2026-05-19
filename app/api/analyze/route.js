@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export async function POST(request) {
-  const { imageData } = await request.json();
+  const { imageData, mimeType } = await request.json();
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -9,7 +9,7 @@ export async function POST(request) {
   }
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -18,7 +18,7 @@ export async function POST(request) {
           parts: [
             {
               inline_data: {
-                mime_type: 'image/jpeg',
+                mime_type: mimeType || 'image/jpeg',
                 data: imageData,
               }
             },

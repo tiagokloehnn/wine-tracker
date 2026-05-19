@@ -26,19 +26,20 @@ export default function Home() {
     setLoading(true);
     const reader = new FileReader();
     reader.onload = async (e) => {
-      const imageData = e.target.result;
-      const base64Data = imageData.split(',')[1];
-      await analyzeWine(base64Data);
+      const dataUrl = e.target.result;
+      const mimeType = dataUrl.split(';')[0].split(':')[1];
+      const base64Data = dataUrl.split(',')[1];
+      await analyzeWine(base64Data, mimeType);
     };
     reader.readAsDataURL(file);
   };
 
-  const analyzeWine = async (base64Data) => {
+  const analyzeWine = async (base64Data, mimeType = 'image/jpeg') => {
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageData: base64Data }),
+        body: JSON.stringify({ imageData: base64Data, mimeType }),
       });
 
       const data = await response.json();
