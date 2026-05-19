@@ -34,7 +34,7 @@ export async function POST(request) {
   if (!response.ok) {
     const erro = await response.text();
     console.error('Erro Gemini:', erro);
-    return NextResponse.json({ error: 'Erro ao chamar a API.' }, { status: response.status });
+    return NextResponse.json({ error: erro }, { status: response.status });
   }
 
   const data = await response.json();
