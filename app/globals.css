@@ -91,37 +91,96 @@ html, body {
 .hero-title { font-size: 20px; font-weight: 700; color: #2D0A14; margin-bottom: 8px; }
 .hero-sub { font-size: 14px; color: #888; line-height: 1.6; }
 
-/* ── UPLOAD BUTTONS ── */
-.upload-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+/* ── SCAN CARD ── */
+.scan-card {
+  background: linear-gradient(135deg, #2D0A14 0%, #1A0608 100%);
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
 
-.btn-upload {
+.scan-card-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.scan-icon { font-size: 38px; flex-shrink: 0; }
+
+.scan-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #F0E2CC;
+  margin: 0 0 4px;
+}
+
+.scan-sub {
+  font-size: 12px;
+  color: rgba(240, 226, 204, 0.55);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.scan-actions { display: flex; gap: 10px; }
+
+.btn-scan-primary {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  width: 100%;
-  padding: 14px;
-  background: #7B2D42;
-  color: #fff;
+  gap: 8px;
+  padding: 13px 10px;
+  background: #C9A96E;
+  color: #2D0A14;
   border: none;
-  border-radius: 14px;
+  border-radius: 13px;
   cursor: pointer;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
+  font-size: 14px;
+  font-weight: 700;
   transition: background 0.2s;
 }
 
-.btn-upload:hover { background: #5C1A28; }
-.btn-upload:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-scan-primary:hover { background: #B8924A; }
+.btn-scan-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn-upload-alt {
-  background: transparent;
-  color: #7B2D42;
-  border: 1.5px solid #7B2D42;
+.btn-scan-alt {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 10px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #F0E2CC;
+  border: 1px solid rgba(240, 226, 204, 0.18);
+  border-radius: 13px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s;
 }
 
-.btn-upload-alt:hover { background: #f5eaed; }
+.btn-scan-alt:hover { background: rgba(255, 255, 255, 0.12); }
+.btn-scan-alt:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── PAIRING TAGS (wine card) ── */
+.pairings-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.pairing-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #4A2560;
+  background: #F0EBF8;
+  border: 1px solid #D4C2E8;
+  border-radius: 20px;
+  padding: 3px 10px;
+}
 
 .usage-indicator {
   text-align: center;

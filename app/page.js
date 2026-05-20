@@ -341,6 +341,7 @@ export default function Home() {
       grape: currentAnalysis.grape,
       confidence: currentAnalysis.confidence,
       date_added: new Date().toLocaleDateString('pt-BR'),
+      pairings: currentAnalysis.pairings ?? null,
     }).select().single();
     if (error) { alert(`Erro ao salvar: ${error.message}`); return; }
     setWineCollection(prev => [data, ...prev]);
@@ -432,6 +433,15 @@ export default function Home() {
         </div>
         {exibirBotoes && <button className="btn-delete" onClick={() => deleteWine(vinho.id)}>✕</button>}
       </div>
+      {vinho.pairings?.length > 0 && (
+        <div className="pairings-tags-row">
+          {vinho.pairings.map((p, i) => (
+            <span key={i} className="pairing-tag">
+              {typeof p === 'object' ? p.name : p}
+            </span>
+          ))}
+        </div>
+      )}
       {vinho.feedback && (
         <div className="resumo-degustacao">
           {vinho.feedback.rating > 0 && <Estrelas nota={vinho.feedback.rating} />}
@@ -566,15 +576,24 @@ export default function Home() {
 
           {!analysisResult && (
             <>
-              <div className="upload-group">
-                <label className="btn-upload">
-                  <span>📷</span> Fotografar rótulo
-                  <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} disabled={loading} />
-                </label>
-                <label className="btn-upload btn-upload-alt">
-                  <span>🖼️</span> Escolher da galeria
-                  <input type="file" accept="image/*" onChange={handlePhoto} disabled={loading} />
-                </label>
+              <div className="scan-card">
+                <div className="scan-card-top">
+                  <span className="scan-icon">🍷</span>
+                  <div>
+                    <p className="scan-title">Identificar vinho com IA</p>
+                    <p className="scan-sub">Fotografe o rótulo para descobrir região, uva e harmonizações</p>
+                  </div>
+                </div>
+                <div className="scan-actions">
+                  <label className="btn-scan-primary">
+                    <span>📷</span> Fotografar
+                    <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} disabled={loading} />
+                  </label>
+                  <label className="btn-scan-alt">
+                    <span>🖼️</span> Galeria
+                    <input type="file" accept="image/*" onChange={handlePhoto} disabled={loading} />
+                  </label>
+                </div>
               </div>
               {userProfile?.is_premium ? (
                 <>
