@@ -4,46 +4,52 @@ export async function POST(request) {
   try {
     const { imageData, mimeType } = await request.json();
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY não configurada no servidor.' }, { status: 500 });
+      return NextResponse.json({ error: 'GROQ_API_KEY não configurada no servidor.' }, { status: 500 });
     }
 
-    let geminiResponse;
+    let groqResponse;
     try {
-      geminiResponse = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
+      groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          messages: [
+            {
+              role: 'user',
+              content: [
                 {
-                  inline_data: {
-                    mime_type: mimeType || 'image/jpeg',
-                    data: imageData,
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:${mimeType || 'image/jpeg'};base64,${imageData}`,
                   },
                 },
                 {
+                  type: 'text',
                   text: 'Analise esta imagem de vinho e responda APENAS em JSON (sem nenhum outro texto) com este formato: {"wine_name": "Nome do vinho", "wine_type": "Tipo (Tinto/Branco/Rosé/Espumante)", "region": "Região", "grape": "Variedade da uva", "confidence": "Alta/Média/Baixa"}. Se não for uma imagem de vinho, coloque null em wine_name.',
                 },
               ],
-            }],
-          }),
-        }
-      );
+            },
+          ],
+          max_tokens: 500,
+        }),
+      });
     } catch (erroRede) {
-      return NextResponse.json({ error: `Falha de rede ao contatar o Gemini: ${erroRede.message}` }, { status: 502 });
+      return NextResponse.json({ error: `Falha de rede ao contatar o Groq: ${erroRede.message}` }, { status: 502 });
     }
 
-    const respostaTexto = await geminiResponse.text();
+    const respostaTexto = await groqResponse.text();
 
-    if (!geminiResponse.ok) {
-      console.error('Erro Gemini:', geminiResponse.status, respostaTexto);
+    if (!groqResponse.ok) {
+      console.error('Erro Groq:', groqResponse.status, respostaTexto);
       return NextResponse.json(
-        { error: `Gemini retornou status ${geminiResponse.status}: ${respostaTexto}` },
-        { status: geminiResponse.status }
+        { error: `Groq retornou status ${groqResponse.status}: ${respostaTexto}` },
+        { status: groqResponse.status }
       );
     }
 
@@ -52,12 +58,12 @@ export async function POST(request) {
       data = JSON.parse(respostaTexto);
     } catch (erroJson) {
       return NextResponse.json(
-        { error: `Resposta inválida do Gemini (não é JSON): ${respostaTexto.slice(0, 200)}` },
+        { error: `Resposta inválida do Groq: ${respostaTexto.slice(0, 200)}` },
         { status: 500 }
       );
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const text = data.choices?.[0]?.message?.content || '';
 
     let analysis;
     try {
