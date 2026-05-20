@@ -552,3 +552,237 @@ input[type="date"]:focus { border-color: #7B2D42; }
 }
 
 .lgpd-btn:hover { background: #C9A96E; color: #2D0A14; }
+
+/* ── SESSION LOADING ── */
+.session-loading {
+  min-height: 100vh;
+  background: linear-gradient(160deg, #2D0A14 0%, #7B2D42 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.session-loading-emoji {
+  font-size: 52px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.session-loading-text {
+  color: rgba(242,234,228,0.8);
+  font-size: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── AUTH SCREEN ── */
+.auth-screen {
+  min-height: 100vh;
+  background: linear-gradient(160deg, #2D0A14 0%, #4a1525 55%, #7B2D42 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.auth-card {
+  background: #fff;
+  border-radius: 24px;
+  padding: 36px 28px 28px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.auth-logo {
+  font-size: 52px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.auth-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #2D0A14;
+  margin: 0 0 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.auth-sub {
+  font-size: 14px;
+  color: #999;
+  margin: 0;
+}
+
+.auth-tabs {
+  display: flex;
+  background: #f5f0f1;
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 24px;
+  gap: 4px;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #999;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.auth-tab.active {
+  background: #fff;
+  color: #7B2D42;
+  box-shadow: 0 2px 8px rgba(123,45,66,0.15);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-input {
+  padding: 14px 16px;
+  border: 1.5px solid #e8e0e2;
+  border-radius: 12px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s;
+  color: #2D0A14;
+  font-family: inherit;
+  background: #fdfbfb;
+}
+
+.auth-input:focus { border-color: #7B2D42; background: #fff; }
+
+.auth-msg {
+  font-size: 13px;
+  text-align: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-family: inherit;
+}
+
+.auth-error { color: #c0392b; background: #fdf0ef; }
+.auth-success { color: #27ae60; background: #edfbf3; }
+
+.auth-btn {
+  background: linear-gradient(135deg, #7B2D42, #9b3d55);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: opacity 0.2s, transform 0.1s;
+  font-family: inherit;
+}
+
+.auth-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+.auth-btn:active { transform: translateY(0); }
+.auth-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+.auth-divider {
+  text-align: center;
+  position: relative;
+  margin: 20px 0;
+}
+
+.auth-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #ede5e7;
+}
+
+.auth-divider span {
+  position: relative;
+  background: #fff;
+  padding: 0 14px;
+  color: #aaa;
+  font-size: 13px;
+}
+
+.auth-google {
+  width: 100%;
+  padding: 13px;
+  border: 1.5px solid #e0d8da;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+
+.auth-google:hover {
+  border-color: #7B2D42;
+  box-shadow: 0 2px 10px rgba(123,45,66,0.12);
+}
+
+.auth-lgpd {
+  font-size: 11px;
+  color: #bbb;
+  text-align: center;
+  margin-top: 18px;
+  line-height: 1.6;
+  font-family: inherit;
+}
+
+/* ── HEADER USER ── */
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.header-email {
+  font-size: 11px;
+  color: rgba(242,234,228,0.65);
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-logout {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.25);
+  color: #F2EAE4;
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: background 0.2s;
+}
+
+.btn-logout:hover { background: rgba(255,255,255,0.25); }

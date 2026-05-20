@@ -1,8 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function Home() {
+  // Auth
+  const [user, setUser] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [authMode, setAuthMode] = useState('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authConfirm, setAuthConfirm] = useState('');
+  const [authError, setAuthError] = useState(null);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+
+  // App
   const [activeTab, setActiveTab] = useState('home');
   const [wineCollection, setWineCollection] = useState([]);
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
@@ -11,20 +23,78 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState(null);
   const [feedbackForm, setFeedbackForm] = useState({ rating: 0, notes: '', tastingDate: '', wouldBuyAgain: null });
-  const [mounted, setMounted] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [cookieConsent, setCookieConsent] = useState(null);
 
+  const loadWines = async (userId) => {
+    const { data, error } = await supabase
+      .from('wines')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (!error) setWineCollection(data || []);
+  };
+
   useEffect(() => {
-    const stored = localStorage.getItem('wines');
-    if (stored) setWineCollection(JSON.parse(stored));
-    setCookieConsent(localStorage.getItem('lgpd_consent'));
-    setMounted(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setSessionLoading(false);
+      if (session?.user) loadWines(session.user.id);
+      setCookieConsent(localStorage.getItem('lgpd_consent'));
+      setHydrated(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) loadWines(session.user.id);
+      else setWineCollection([]);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const acceptCookies = () => {
     localStorage.setItem('lgpd_consent', 'accepted');
     setCookieConsent('accepted');
   };
+
+  // ── AUTH HANDLERS ──
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthSubmitting(true);
+    const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+    if (error) setAuthError(error.message);
+    setAuthSubmitting(false);
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (authPassword !== authConfirm) { setAuthError('As senhas não coincidem.'); return; }
+    if (authPassword.length < 6) { setAuthError('A senha deve ter pelo menos 6 caracteres.'); return; }
+    setAuthError(null);
+    setAuthSubmitting(true);
+    const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+    if (error) setAuthError(error.message);
+    else setAuthError('✓ Conta criada! Verifique seu e-mail para confirmar o cadastro.');
+    setAuthSubmitting(false);
+  };
+
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    });
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setWineCollection([]);
+    setActiveTab('home');
+  };
+
+  // ── IMAGE RESIZE ──
 
   const resizeImage = (dataUrl) => new Promise((resolve) => {
     const img = new Image();
@@ -84,41 +154,49 @@ export default function Home() {
     }
   };
 
-  const addToCollection = () => {
-    if (!currentAnalysis) return;
+  // ── WINE CRUD ──
+
+  const addToCollection = async () => {
+    if (!currentAnalysis || !user) return;
     const exists = wineCollection.some(w => w.wine_name.toLowerCase() === currentAnalysis.wine_name.toLowerCase());
     if (exists) { alert('Este vinho já está na sua coleção.'); return; }
-    const updated = [...wineCollection, { ...currentAnalysis, dateAdded: new Date().toLocaleDateString('pt-BR') }];
-    setWineCollection(updated);
-    localStorage.setItem('wines', JSON.stringify(updated));
+    const { data, error } = await supabase.from('wines').insert({
+      user_id: user.id,
+      wine_name: currentAnalysis.wine_name,
+      wine_type: currentAnalysis.wine_type,
+      region: currentAnalysis.region,
+      grape: currentAnalysis.grape,
+      confidence: currentAnalysis.confidence,
+      date_added: new Date().toLocaleDateString('pt-BR'),
+    }).select().single();
+    if (error) { alert(`Erro ao salvar: ${error.message}`); return; }
+    setWineCollection(prev => [data, ...prev]);
     setAnalysisResult(false);
     setCurrentAnalysis(null);
     setActiveTab('collection');
   };
 
-  const deleteWine = (idx) => {
-    if (confirm('Remover este vinho da coleção?')) {
-      const updated = wineCollection.filter((_, i) => i !== idx);
-      setWineCollection(updated);
-      localStorage.setItem('wines', JSON.stringify(updated));
-    }
+  const deleteWine = async (id) => {
+    if (!confirm('Remover este vinho da coleção?')) return;
+    const { error } = await supabase.from('wines').delete().eq('id', id);
+    if (error) { alert(`Erro ao remover: ${error.message}`); return; }
+    setWineCollection(prev => prev.filter(w => w.id !== id));
   };
 
-  const openFeedback = (idx) => {
-    const wine = wineCollection[idx];
+  const openFeedback = (vinho) => {
     setFeedbackForm({
-      rating: wine.feedback?.rating || 0,
-      notes: wine.feedback?.notes || '',
-      tastingDate: wine.feedback?.tastingDate || new Date().toISOString().split('T')[0],
-      wouldBuyAgain: wine.feedback?.wouldBuyAgain ?? null,
+      rating: vinho.feedback?.rating || 0,
+      notes: vinho.feedback?.notes || '',
+      tastingDate: vinho.feedback?.tastingDate || new Date().toISOString().split('T')[0],
+      wouldBuyAgain: vinho.feedback?.wouldBuyAgain ?? null,
     });
-    setFeedbackModal(idx);
+    setFeedbackModal(vinho.id);
   };
 
-  const saveFeedback = () => {
-    const updated = wineCollection.map((w, i) => i === feedbackModal ? { ...w, feedback: feedbackForm } : w);
-    setWineCollection(updated);
-    localStorage.setItem('wines', JSON.stringify(updated));
+  const saveFeedback = async () => {
+    const { error } = await supabase.from('wines').update({ feedback: feedbackForm }).eq('id', feedbackModal);
+    if (error) { alert(`Erro ao salvar degustação: ${error.message}`); return; }
+    setWineCollection(prev => prev.map(w => w.id === feedbackModal ? { ...w, feedback: feedbackForm } : w));
     setFeedbackModal(null);
   };
 
@@ -127,6 +205,8 @@ export default function Home() {
     const [y, m, d] = isoDate.split('-');
     return `${d}/${m}/${y}`;
   };
+
+  // ── STATS ──
 
   const total = wineCollection.length;
   const byType = wineCollection.reduce((acc, w) => { acc[w.wine_type] = (acc[w.wine_type] || 0) + 1; return acc; }, {});
@@ -154,6 +234,8 @@ export default function Home() {
     return 'badge-outro';
   };
 
+  // ── COMPONENTS ──
+
   const Estrelas = ({ nota, interativo = false, aoSelecionar }) => (
     <div style={{ display: 'flex', gap: '3px' }}>
       {[1, 2, 3, 4, 5].map(n => (
@@ -165,7 +247,7 @@ export default function Home() {
     </div>
   );
 
-  const CardVinho = ({ vinho, idx, exibirBotoes }) => (
+  const CardVinho = ({ vinho, exibirBotoes }) => (
     <div className="wine-card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>
@@ -173,9 +255,9 @@ export default function Home() {
           <span className={`type-badge ${typeBadgeClass(vinho.wine_type)}`}>{vinho.wine_type}</span>
           <p className="wine-detail" style={{ marginTop: '8px' }}>📍 {vinho.region}</p>
           <p className="wine-detail">🍇 {vinho.grape}</p>
-          <p className="wine-detail" style={{ fontSize: '11px', color: '#bbb', marginTop: '4px' }}>Adicionado em {vinho.dateAdded}</p>
+          <p className="wine-detail" style={{ fontSize: '11px', color: '#bbb', marginTop: '4px' }}>Adicionado em {vinho.date_added}</p>
         </div>
-        {exibirBotoes && <button className="btn-delete" onClick={() => deleteWine(idx)}>✕</button>}
+        {exibirBotoes && <button className="btn-delete" onClick={() => deleteWine(vinho.id)}>✕</button>}
       </div>
       {vinho.feedback && (
         <div className="resumo-degustacao">
@@ -189,23 +271,81 @@ export default function Home() {
         </div>
       )}
       {exibirBotoes && (
-        <button className="btn-degustacao" onClick={() => openFeedback(idx)}>
+        <button className="btn-degustacao" onClick={() => openFeedback(vinho)}>
           {vinho.feedback ? '✏️ Editar degustação' : '+ Registrar degustação'}
         </button>
       )}
     </div>
   );
 
-  if (!mounted) return null;
+  // ── RENDER GUARDS ──
+
+  if (!hydrated || sessionLoading) return (
+    <div className="session-loading">
+      <div className="session-loading-emoji">🍷</div>
+      <p className="session-loading-text">Carregando...</p>
+    </div>
+  );
+
+  // ── AUTH SCREEN ──
+
+  if (!user) return (
+    <div className="auth-screen">
+      <div className="auth-card">
+        <div className="auth-header">
+          <span className="auth-logo">🍷</span>
+          <h1 className="auth-title">Wine Tracker</h1>
+          <p className="auth-sub">Sua adega pessoal, em qualquer lugar</p>
+        </div>
+
+        <div className="auth-tabs">
+          <button className={`auth-tab ${authMode === 'login' ? 'active' : ''}`} onClick={() => { setAuthMode('login'); setAuthError(null); }}>Entrar</button>
+          <button className={`auth-tab ${authMode === 'register' ? 'active' : ''}`} onClick={() => { setAuthMode('register'); setAuthError(null); }}>Criar conta</button>
+        </div>
+
+        <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="auth-form">
+          <input type="email" className="auth-input" placeholder="E-mail" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required autoComplete="email" />
+          <input type="password" className="auth-input" placeholder="Senha" value={authPassword} onChange={e => setAuthPassword(e.target.value)} required autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} />
+          {authMode === 'register' && (
+            <input type="password" className="auth-input" placeholder="Confirmar senha" value={authConfirm} onChange={e => setAuthConfirm(e.target.value)} required autoComplete="new-password" />
+          )}
+          {authError && <p className={`auth-msg ${authError.startsWith('✓') ? 'auth-success' : 'auth-error'}`}>{authError}</p>}
+          <button type="submit" className="auth-btn" disabled={authSubmitting}>
+            {authSubmitting ? 'Aguarde...' : authMode === 'login' ? 'Entrar' : 'Criar conta'}
+          </button>
+        </form>
+
+        <div className="auth-divider"><span>ou</span></div>
+
+        <button className="auth-google" onClick={handleGoogleLogin}>
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Continuar com Google
+        </button>
+
+        <p className="auth-lgpd">🔒 Seus dados são salvos em servidor seguro e nunca compartilhados. Conforme a LGPD.</p>
+      </div>
+    </div>
+  );
+
+  // ── MAIN APP ──
 
   return (
     <div className="app-container">
 
       <div className="app-header">
         <span className="header-logo">🍷</span>
-        <div>
+        <div style={{ flex: 1 }}>
           <div className="header-title">Wine Tracker</div>
           <div className="header-sub">Sua adega pessoal</div>
+        </div>
+        <div className="header-user">
+          <span className="header-email">{user.email}</span>
+          <button className="btn-logout" onClick={handleLogout}>Sair</button>
         </div>
       </div>
 
@@ -377,7 +517,7 @@ export default function Home() {
               </button>
             </div>
           ) : (
-            wineCollection.map((vinho, idx) => <CardVinho key={idx} vinho={vinho} idx={idx} exibirBotoes={true} />)
+            wineCollection.map(vinho => <CardVinho key={vinho.id} vinho={vinho} exibirBotoes={true} />)
           )}
         </div>
       )}
@@ -395,10 +535,10 @@ export default function Home() {
           />
           {searchResults.length === 0 ? (
             <div className="empty-state">
-              {searchQuery ? '😕 Nenhum resultado para "' + searchQuery + '".' : 'Digite para buscar na sua coleção.'}
+              {searchQuery ? `😕 Nenhum resultado para "${searchQuery}".` : 'Digite para buscar na sua coleção.'}
             </div>
           ) : (
-            searchResults.map((vinho, idx) => <CardVinho key={idx} vinho={vinho} idx={idx} exibirBotoes={false} />)
+            searchResults.map(vinho => <CardVinho key={vinho.id} vinho={vinho} exibirBotoes={false} />)
           )}
         </div>
       )}
@@ -439,7 +579,7 @@ export default function Home() {
         <div className="lgpd-banner">
           <div className="lgpd-content">
             <p className="lgpd-text">
-              🔒 <strong>Privacidade:</strong> Sua coleção é salva <strong>apenas no seu dispositivo</strong>. As imagens dos rótulos são enviadas à IA Groq para análise e não são armazenadas. Nenhum dado pessoal é coletado. Em conformidade com a <strong>LGPD</strong>.
+              🔒 <strong>Privacidade:</strong> Sua coleção é salva em <strong>servidor seguro (Supabase)</strong>. As imagens são enviadas à IA Groq para análise e não são armazenadas. Nenhum dado pessoal é compartilhado. Em conformidade com a <strong>LGPD</strong>.
             </p>
             <button className="lgpd-btn" onClick={acceptCookies}>Entendi e aceito</button>
           </div>
