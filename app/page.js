@@ -83,6 +83,7 @@ export default function Home() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'PASSWORD_RECOVERY') { setAuthMode('update-password'); return; }
       setUser(session?.user ?? null);
       if (session?.user) { loadWines(session.user.id); loadProfile(session.user.id); loadUsage(); }
       else { setWineCollection([]); setUserProfile(null); setAnalysisUsage(null); }
@@ -116,6 +117,30 @@ export default function Home() {
     const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
     if (error) setAuthError(error.message);
     else setAuthError('✓ Conta criada! Verifique seu e-mail para confirmar o cadastro.');
+    setAuthSubmitting(false);
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthSubmitting(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(authEmail, {
+      redirectTo: window.location.origin,
+    });
+    if (error) setAuthError(error.message);
+    else setAuthError('✓ Link enviado! Verifique seu e-mail para redefinir a senha.');
+    setAuthSubmitting(false);
+  };
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (authPassword !== authConfirm) { setAuthError('As senhas não coincidem.'); return; }
+    if (authPassword.length < 6) { setAuthError('A senha deve ter pelo menos 6 caracteres.'); return; }
+    setAuthError(null);
+    setAuthSubmitting(true);
+    const { error } = await supabase.auth.updateUser({ password: authPassword });
+    if (error) setAuthError(error.message);
+    else { setAuthError('✓ Senha atualizada com sucesso!'); setAuthMode('login'); }
     setAuthSubmitting(false);
   };
 
@@ -368,22 +393,50 @@ export default function Home() {
           <p className="auth-sub">Sua adega pessoal, em qualquer lugar</p>
         </div>
 
-        <div className="auth-tabs">
-          <button className={`auth-tab ${authMode === 'login' ? 'active' : ''}`} onClick={() => { setAuthMode('login'); setAuthError(null); }}>Entrar</button>
-          <button className={`auth-tab ${authMode === 'register' ? 'active' : ''}`} onClick={() => { setAuthMode('register'); setAuthError(null); }}>Criar conta</button>
-        </div>
+        {authMode !== 'reset' && authMode !== 'update-password' && (
+          <div className="auth-tabs">
+            <button className={`auth-tab ${authMode === 'login' ? 'active' : ''}`} onClick={() => { setAuthMode('login'); setAuthError(null); }}>Entrar</button>
+            <button className={`auth-tab ${authMode === 'register' ? 'active' : ''}`} onClick={() => { setAuthMode('register'); setAuthError(null); }}>Criar conta</button>
+          </div>
+        )}
 
-        <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="auth-form">
-          <input type="email" className="auth-input" placeholder="E-mail" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required autoComplete="email" />
-          <input type="password" className="auth-input" placeholder="Senha" value={authPassword} onChange={e => setAuthPassword(e.target.value)} required autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} />
-          {authMode === 'register' && (
-            <input type="password" className="auth-input" placeholder="Confirmar senha" value={authConfirm} onChange={e => setAuthConfirm(e.target.value)} required autoComplete="new-password" />
-          )}
-          {authError && <p className={`auth-msg ${authError.startsWith('✓') ? 'auth-success' : 'auth-error'}`}>{authError}</p>}
-          <button type="submit" className="auth-btn" disabled={authSubmitting}>
-            {authSubmitting ? 'Aguarde...' : authMode === 'login' ? 'Entrar' : 'Criar conta'}
-          </button>
-        </form>
+        {authMode === 'reset' ? (
+          <form onSubmit={handleResetPassword} className="auth-form">
+            <input type="email" className="auth-input" placeholder="E-mail" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required autoComplete="email" />
+            {authError && <p className={`auth-msg ${authError.startsWith('✓') ? 'auth-success' : 'auth-error'}`}>{authError}</p>}
+            <button type="submit" className="auth-btn" disabled={authSubmitting}>
+              {authSubmitting ? 'Aguarde...' : 'Enviar link de recuperação'}
+            </button>
+            <button type="button" className="btn-ghost" onClick={() => { setAuthMode('login'); setAuthError(null); }}>Voltar ao login</button>
+          </form>
+        ) : authMode === 'update-password' ? (
+          <form onSubmit={handleUpdatePassword} className="auth-form">
+            <p style={{ fontSize: '14px', color: '#888', textAlign: 'center', marginBottom: '4px' }}>Digite sua nova senha</p>
+            <input type="password" className="auth-input" placeholder="Nova senha" value={authPassword} onChange={e => setAuthPassword(e.target.value)} required autoComplete="new-password" />
+            <input type="password" className="auth-input" placeholder="Confirmar nova senha" value={authConfirm} onChange={e => setAuthConfirm(e.target.value)} required autoComplete="new-password" />
+            {authError && <p className={`auth-msg ${authError.startsWith('✓') ? 'auth-success' : 'auth-error'}`}>{authError}</p>}
+            <button type="submit" className="auth-btn" disabled={authSubmitting}>
+              {authSubmitting ? 'Aguarde...' : 'Salvar nova senha'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="auth-form">
+            <input type="email" className="auth-input" placeholder="E-mail" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required autoComplete="email" />
+            <input type="password" className="auth-input" placeholder="Senha" value={authPassword} onChange={e => setAuthPassword(e.target.value)} required autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} />
+            {authMode === 'register' && (
+              <input type="password" className="auth-input" placeholder="Confirmar senha" value={authConfirm} onChange={e => setAuthConfirm(e.target.value)} required autoComplete="new-password" />
+            )}
+            {authError && <p className={`auth-msg ${authError.startsWith('✓') ? 'auth-success' : 'auth-error'}`}>{authError}</p>}
+            <button type="submit" className="auth-btn" disabled={authSubmitting}>
+              {authSubmitting ? 'Aguarde...' : authMode === 'login' ? 'Entrar' : 'Criar conta'}
+            </button>
+            {authMode === 'login' && (
+              <button type="button" className="btn-ghost" style={{ marginTop: '-4px', fontSize: '13px' }} onClick={() => { setAuthMode('reset'); setAuthError(null); }}>
+                Esqueci minha senha
+              </button>
+            )}
+          </form>
+        )}
 
         <p className="auth-lgpd">🔒 Seus dados são armazenados com segurança e nunca compartilhados com terceiros. Conforme a LGPD (Lei 13.709/2018).</p>
       </div>
