@@ -145,9 +145,13 @@ export default function Home() {
 
   const analyzeWine = async (base64Data, mimeType = 'image/jpeg') => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ imageData: base64Data, mimeType }),
       });
       const rawText = await response.text();
