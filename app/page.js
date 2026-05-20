@@ -31,6 +31,7 @@ export default function Home() {
   const [allProfiles, setAllProfiles] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
   const [analysisUsage, setAnalysisUsage] = useState(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const loadWines = async (userId) => {
     const { data, error } = await supabase
@@ -73,6 +74,12 @@ export default function Home() {
       if (session?.user) { loadWines(session.user.id); loadProfile(session.user.id); loadUsage(); }
       setCookieConsent(localStorage.getItem('lgpd_consent'));
       setHydrated(true);
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('payment') === 'success') {
+        window.history.replaceState({}, '', '/');
+        alert('✅ Assinatura confirmada! Bem-vindo ao Premium!');
+        if (session?.user) loadProfile(session.user.id);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -118,6 +125,38 @@ export default function Home() {
     setUserProfile(null);
     setAnalysisUsage(null);
     setActiveTab('home');
+  };
+
+  const handleCheckout = async () => {
+    setCheckoutLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      window.location.href = data.url;
+    } catch (err) {
+      alert(`Erro ao iniciar pagamento: ${err.message}`);
+      setCheckoutLoading(false);
+    }
+  };
+
+  const handlePortal = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/portal', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      window.location.href = data.url;
+    } catch (err) {
+      alert(`Erro: ${err.message}`);
+    }
   };
 
   // ── IMAGE RESIZE ──
@@ -406,12 +445,25 @@ export default function Home() {
                   <input type="file" accept="image/*" onChange={handlePhoto} disabled={loading} />
                 </label>
               </div>
-              {analysisUsage !== null && (
-                <p className={`usage-indicator${GLOBAL_MONTHLY_LIMIT - analysisUsage <= 20 ? ' usage-low' : ''}`}>
-                  {GLOBAL_MONTHLY_LIMIT - analysisUsage <= 0
-                    ? '⚠️ Serviço de análise indisponível este mês'
-                    : `${GLOBAL_MONTHLY_LIMIT - analysisUsage} de ${GLOBAL_MONTHLY_LIMIT} análises disponíveis este mês`}
-                </p>
+              {userProfile?.is_premium ? (
+                <>
+                  <p className="usage-indicator premium-active">✨ Plano Premium — análises ilimitadas</p>
+                  <button className="btn-portal" onClick={handlePortal}>Gerenciar assinatura</button>
+                </>
+              ) : analysisUsage !== null && (
+                <>
+                  <p className={`usage-indicator${GLOBAL_MONTHLY_LIMIT - analysisUsage <= 20 ? ' usage-low' : ''}`}>
+                    {GLOBAL_MONTHLY_LIMIT - analysisUsage <= 0
+                      ? '⚠️ Serviço de análise indisponível este mês'
+                      : `${GLOBAL_MONTHLY_LIMIT - analysisUsage} de ${GLOBAL_MONTHLY_LIMIT} análises disponíveis este mês`}
+                  </p>
+                  <div className="upgrade-card">
+                    <p className="upgrade-text">Quer análises ilimitadas? Assine o plano Premium por <strong>R$9,90/mês</strong></p>
+                    <button className="btn-upgrade" onClick={handleCheckout} disabled={checkoutLoading}>
+                      {checkoutLoading ? 'Aguarde...' : '⭐ Assinar Premium'}
+                    </button>
+                  </div>
+                </>
               )}
             </>
           )}
