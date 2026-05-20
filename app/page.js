@@ -25,6 +25,9 @@ export default function Home() {
   const [feedbackForm, setFeedbackForm] = useState({ rating: 0, notes: '', tastingDate: '', wouldBuyAgain: null });
   const [hydrated, setHydrated] = useState(false);
   const [cookieConsent, setCookieConsent] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [allProfiles, setAllProfiles] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
 
   const loadWines = async (userId) => {
     const { data, error } = await supabase
@@ -35,19 +38,39 @@ export default function Home() {
     if (!error) setWineCollection(data || []);
   };
 
+  const loadProfile = async (userId) => {
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+    setUserProfile(data ?? null);
+  };
+
+  const loadAllProfiles = async () => {
+    setAdminLoading(true);
+    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    if (error) alert(`Erro ao carregar usuários: ${error.message}`);
+    setAllProfiles(data || []);
+    setAdminLoading(false);
+  };
+
+  const toggleAdmin = async (profileId, currentValue) => {
+    if (!confirm(`${currentValue ? 'Remover' : 'Conceder'} acesso de administrador para este usuário?`)) return;
+    const { error } = await supabase.from('profiles').update({ is_admin: !currentValue }).eq('id', profileId);
+    if (error) { alert(`Erro: ${error.message}`); return; }
+    setAllProfiles(prev => prev.map(p => p.id === profileId ? { ...p, is_admin: !currentValue } : p));
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setSessionLoading(false);
-      if (session?.user) loadWines(session.user.id);
+      if (session?.user) { loadWines(session.user.id); loadProfile(session.user.id); }
       setCookieConsent(localStorage.getItem('lgpd_consent'));
       setHydrated(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadWines(session.user.id);
-      else setWineCollection([]);
+      if (session?.user) { loadWines(session.user.id); loadProfile(session.user.id); }
+      else { setWineCollection([]); setUserProfile(null); }
     });
 
     return () => subscription.unsubscribe();
@@ -84,6 +107,7 @@ export default function Home() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setWineCollection([]);
+    setUserProfile(null);
     setActiveTab('home');
   };
 
@@ -308,7 +332,7 @@ export default function Home() {
           </button>
         </form>
 
-        <p className="auth-lgpd">🔒 Seus dados são salvos em servidor seguro e nunca compartilhados. Conforme a LGPD.</p>
+        <p className="auth-lgpd">🔒 Seus dados são armazenados com segurança e nunca compartilhados com terceiros. Conforme a LGPD (Lei 13.709/2018).</p>
       </div>
     </div>
   );
@@ -336,6 +360,7 @@ export default function Home() {
           { id: 'stats', icon: '📊', label: 'Painel' },
           { id: 'collection', icon: '🗂️', label: 'Coleção' },
           { id: 'search', icon: '🔍', label: 'Buscar' },
+          ...(userProfile?.is_admin ? [{ id: 'admin', icon: '⚙️', label: 'Admin' }] : []),
         ].map(tab => (
           <button key={tab.id} className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`} onClick={() => setActiveTab(tab.id)}>
             <span className="tab-icon">{tab.icon}</span>
@@ -512,7 +537,6 @@ export default function Home() {
             placeholder="Nome do vinho, região ou uva..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            autoFocus
           />
           {searchResults.length === 0 ? (
             <div className="empty-state">
@@ -521,6 +545,37 @@ export default function Home() {
           ) : (
             searchResults.map(vinho => <CardVinho key={vinho.id} vinho={vinho} exibirBotoes={false} />)
           )}
+        </div>
+      )}
+
+      {/* ── ADMIN ── */}
+      {activeTab === 'admin' && userProfile?.is_admin && (
+        <div className="tab-content">
+          <h2 className="section-title">Administração de usuários</h2>
+          <button className="btn-primary" onClick={loadAllProfiles} disabled={adminLoading} style={{ marginBottom: '16px' }}>
+            {adminLoading ? 'Carregando...' : '🔄 Atualizar lista'}
+          </button>
+          {allProfiles.length === 0 && !adminLoading && (
+            <div className="empty-state">Clique em "Atualizar lista" para ver todos os usuários cadastrados.</div>
+          )}
+          {allProfiles.map(profile => (
+            <div key={profile.id} className="admin-user-card">
+              <div className="admin-user-info">
+                <p className="admin-user-email">{profile.email}</p>
+                <p className="admin-user-date">Desde {new Date(profile.created_at).toLocaleDateString('pt-BR')}</p>
+              </div>
+              <div className="admin-user-actions">
+                {profile.is_admin && <span className="admin-badge">Admin</span>}
+                <button
+                  className={profile.is_admin ? 'btn-revoke-admin' : 'btn-grant-admin'}
+                  onClick={() => toggleAdmin(profile.id, profile.is_admin)}
+                  disabled={profile.id === user.id}
+                >
+                  {profile.id === user.id ? 'Você' : profile.is_admin ? 'Remover admin' : 'Dar admin'}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -560,7 +615,7 @@ export default function Home() {
         <div className="lgpd-banner">
           <div className="lgpd-content">
             <p className="lgpd-text">
-              🔒 <strong>Privacidade:</strong> Sua coleção é salva em <strong>servidor seguro (Supabase)</strong>. As imagens são enviadas à IA Groq para análise e não são armazenadas. Nenhum dado pessoal é compartilhado. Em conformidade com a <strong>LGPD</strong>.
+              🔒 <strong>Privacidade:</strong> Sua coleção é armazenada em servidor seguro com criptografia. As imagens enviadas são processadas por inteligência artificial para identificação do vinho e não são armazenadas permanentemente. Nenhum dado pessoal é compartilhado com terceiros. Em conformidade com a <strong>LGPD</strong> (Lei 13.709/2018).
             </p>
             <button className="lgpd-btn" onClick={acceptCookies}>Entendi e aceito</button>
           </div>
