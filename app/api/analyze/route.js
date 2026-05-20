@@ -9,13 +9,32 @@ export async function POST(request) {
     }
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      { global: { headers: { Authorization: authHeader } } }
     );
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace('Bearer ', '')
     );
     if (authError || !user) {
       return NextResponse.json({ error: 'Sessão inválida.' }, { status: 401 });
+    }
+
+    const GLOBAL_MONTHLY_LIMIT = 200;
+    const { data: usageCheck, error: usageError } = await supabase.rpc('check_and_increment_usage', {
+      p_user_id: user.id,
+      p_global_limit: GLOBAL_MONTHLY_LIMIT,
+    });
+    if (usageError) {
+      return NextResponse.json({ error: `Erro ao verificar cota de uso: ${usageError.message}` }, { status: 500 });
+    }
+    if (!usageCheck.allowed) {
+      const nextMonth = new Date();
+      nextMonth.setMonth(nextMonth.getMonth() + 1, 1);
+      const resetDate = nextMonth.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+      return NextResponse.json({
+        error: `O serviço atingiu o limite de análises este mês. Renovação em ${resetDate}.`,
+        limitReached: true,
+      }, { status: 429 });
     }
 
     const { imageData, mimeType } = await request.json();

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+const GLOBAL_MONTHLY_LIMIT = 200;
+
 export default function Home() {
   // Auth
   const [user, setUser] = useState(null);
@@ -28,6 +30,7 @@ export default function Home() {
   const [userProfile, setUserProfile] = useState(null);
   const [allProfiles, setAllProfiles] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [analysisUsage, setAnalysisUsage] = useState(null);
 
   const loadWines = async (userId) => {
     const { data, error } = await supabase
@@ -51,6 +54,11 @@ export default function Home() {
     setAdminLoading(false);
   };
 
+  const loadUsage = async () => {
+    const { data } = await supabase.rpc('get_global_usage');
+    setAnalysisUsage(data?.used ?? 0);
+  };
+
   const toggleAdmin = async (profileId, currentValue) => {
     if (!confirm(`${currentValue ? 'Remover' : 'Conceder'} acesso de administrador para este usuário?`)) return;
     const { error } = await supabase.from('profiles').update({ is_admin: !currentValue }).eq('id', profileId);
@@ -62,15 +70,15 @@ export default function Home() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setSessionLoading(false);
-      if (session?.user) { loadWines(session.user.id); loadProfile(session.user.id); }
+      if (session?.user) { loadWines(session.user.id); loadProfile(session.user.id); loadUsage(); }
       setCookieConsent(localStorage.getItem('lgpd_consent'));
       setHydrated(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) { loadWines(session.user.id); loadProfile(session.user.id); }
-      else { setWineCollection([]); setUserProfile(null); }
+      if (session?.user) { loadWines(session.user.id); loadProfile(session.user.id); loadUsage(); }
+      else { setWineCollection([]); setUserProfile(null); setAnalysisUsage(null); }
     });
 
     return () => subscription.unsubscribe();
@@ -108,6 +116,7 @@ export default function Home() {
     await supabase.auth.signOut();
     setWineCollection([]);
     setUserProfile(null);
+    setAnalysisUsage(null);
     setActiveTab('home');
   };
 
@@ -164,6 +173,7 @@ export default function Home() {
         setCurrentAnalysis(analysis);
         setAnalysisResult(true);
         setActiveTab('home');
+        setAnalysisUsage(prev => prev !== null ? prev + 1 : 1);
       } else {
         alert('❌ Não consegui identificar o vinho. Tente uma foto mais nítida do rótulo.');
       }
@@ -385,16 +395,25 @@ export default function Home() {
           )}
 
           {!analysisResult && (
-            <div className="upload-group">
-              <label className="btn-upload">
-                <span>📷</span> Fotografar rótulo
-                <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} disabled={loading} />
-              </label>
-              <label className="btn-upload btn-upload-alt">
-                <span>🖼️</span> Escolher da galeria
-                <input type="file" accept="image/*" onChange={handlePhoto} disabled={loading} />
-              </label>
-            </div>
+            <>
+              <div className="upload-group">
+                <label className="btn-upload">
+                  <span>📷</span> Fotografar rótulo
+                  <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} disabled={loading} />
+                </label>
+                <label className="btn-upload btn-upload-alt">
+                  <span>🖼️</span> Escolher da galeria
+                  <input type="file" accept="image/*" onChange={handlePhoto} disabled={loading} />
+                </label>
+              </div>
+              {analysisUsage !== null && (
+                <p className={`usage-indicator${GLOBAL_MONTHLY_LIMIT - analysisUsage <= 20 ? ' usage-low' : ''}`}>
+                  {GLOBAL_MONTHLY_LIMIT - analysisUsage <= 0
+                    ? '⚠️ Serviço de análise indisponível este mês'
+                    : `${GLOBAL_MONTHLY_LIMIT - analysisUsage} de ${GLOBAL_MONTHLY_LIMIT} análises disponíveis este mês`}
+                </p>
+              )}
+            </>
           )}
 
           {loading && (
