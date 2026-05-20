@@ -679,6 +679,24 @@ export default function Home() {
                     <p>{currentAnalysis.description}</p>
                   </div>
                 )}
+                {currentAnalysis.pairings?.length > 0 && (
+                  <div className="pairings-section">
+                    <p className="pairings-title">🧀 Harmoniza com</p>
+                    <div className="pairings-list">
+                      {currentAnalysis.pairings.map((p, i) => (
+                        <div key={i} className="pairing-item">
+                          <span className="pairing-name">{typeof p === 'object' ? p.name : p}</span>
+                          {typeof p === 'object' && p.detail && (
+                            <span className="pairing-detail">{p.detail}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {!userProfile?.is_premium && (
+                      <p className="pairings-upgrade">🔒 Assine o Premium para ver por que cada acompanhamento harmoniza</p>
+                    )}
+                  </div>
+                )}
                 <div className={`status-pill ${wineExists ? 'pill-exists' : 'pill-new'}`}>
                   {wineExists ? '✓ Já está na sua coleção' : '✨ Novo vinho descoberto!'}
                 </div>

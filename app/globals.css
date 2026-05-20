@@ -375,6 +375,53 @@ input[type="file"] { display: none; }
   font-style: italic;
 }
 
+.pairings-section {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: #F5F0FA;
+  border-left: 3px solid #7C3F8E;
+  border-radius: 0 8px 8px 0;
+}
+
+.pairings-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4A2560;
+  margin: 0 0 10px;
+}
+
+.pairings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pairing-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pairing-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.pairing-detail {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.pairings-upgrade {
+  font-size: 11px;
+  color: #7C3F8E;
+  margin: 10px 0 0;
+  opacity: 0.8;
+}
+
 .status-pill {
   text-align: center;
   padding: 8px;

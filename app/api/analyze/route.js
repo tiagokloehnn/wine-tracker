@@ -37,6 +37,13 @@ export async function POST(request) {
       }, { status: 429 });
     }
 
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_premium')
+      .eq('id', user.id)
+      .single();
+    const isPremium = profile?.is_premium ?? false;
+
     const { imageData, mimeType } = await request.json();
 
     const apiKey = process.env.GROQ_API_KEY;
@@ -66,12 +73,12 @@ export async function POST(request) {
                 },
                 {
                   type: 'text',
-                  text: 'Analise esta imagem de vinho e responda APENAS em JSON (sem nenhum outro texto) com este formato: {"wine_name": "Nome do vinho", "wine_type": "Tipo (Tinto/Branco/Rosé/Espumante)", "region": "Região", "grape": "Variedade da uva", "confidence": "Alta/Média/Baixa", "description": "Apresentação do vinho em 2 a 3 frases em português: origem, características principais e uma curiosidade histórica ou cultural"}. Se não for uma imagem de vinho, coloque null em wine_name e null em description.',
+                  text: 'Analise esta imagem de vinho e responda APENAS em JSON (sem nenhum outro texto) com este formato exato: {"wine_name": "Nome do vinho", "wine_type": "Tipo (Tinto/Branco/Rosé/Espumante)", "region": "Região", "grape": "Variedade da uva", "confidence": "Alta/Média/Baixa", "description": "Apresentação do vinho em 2 a 3 frases em português: origem, características principais e uma curiosidade histórica ou cultural", "pairings": [{"name": "Nome do acompanhamento", "detail": "Uma frase explicando por que harmoniza bem com este vinho"}, {"name": "...", "detail": "..."}, {"name": "...", "detail": "..."}]}. Inclua exatamente 3 sugestões de acompanhamentos variados (queijos, embutidos, carnes, massas ou outros). Se não for uma imagem de vinho, coloque null em wine_name, null em description e [] em pairings.',
                 },
               ],
             },
           ],
-          max_tokens: 500,
+          max_tokens: 800,
         }),
       });
     } catch (erroRede) {
@@ -106,6 +113,10 @@ export async function POST(request) {
       analysis = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
     } catch {
       analysis = null;
+    }
+
+    if (analysis?.pairings && !isPremium) {
+      analysis.pairings = analysis.pairings.map(p => (typeof p === 'object' ? p.name : p));
     }
 
     return NextResponse.json({ analysis });
