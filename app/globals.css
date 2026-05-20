@@ -140,8 +140,64 @@ html, body {
   border: 1.5px solid #C9A96E;
   border-radius: 14px;
   padding: 14px;
+  margin-bottom: 12px;
+}
+
+.upgrade-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #5C1A28;
   text-align: center;
   margin-bottom: 12px;
+}
+
+.plans-row {
+  display: flex;
+  gap: 10px;
+}
+
+.plan-option {
+  flex: 1;
+  background: #fff;
+  border: 1.5px solid #E8D5C0;
+  border-radius: 12px;
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.plan-option-featured {
+  border-color: #C9A96E;
+  background: linear-gradient(180deg, #FFFAF3, #FFF5E6);
+}
+
+.plan-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #2D0A14;
+}
+
+.plan-price {
+  font-size: 20px;
+  font-weight: 800;
+  color: #B8924A;
+  line-height: 1;
+}
+
+.plan-price span {
+  font-size: 12px;
+  font-weight: 500;
+  color: #999;
+}
+
+.plan-desc {
+  font-size: 11px;
+  color: #888;
+  line-height: 1.4;
+  flex: 1;
 }
 
 .upgrade-text {
@@ -153,20 +209,83 @@ html, body {
 
 .btn-upgrade {
   width: 100%;
-  padding: 12px;
+  padding: 9px 8px;
   background: linear-gradient(135deg, #C9A96E, #B8924A);
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   font-family: inherit;
   transition: opacity 0.2s;
+  margin-top: 2px;
 }
 
 .btn-upgrade:hover { opacity: 0.88; }
 .btn-upgrade:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.shared-cellar-box {
+  background: #F0FAF4;
+  border: 1px solid #A5D6B0;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.shared-cellar-status {
+  font-size: 13px;
+  color: #2E7D32;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.invite-url-box {
+  display: flex;
+  gap: 6px;
+}
+
+.invite-url-input {
+  flex: 1;
+  font-size: 11px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  color: #555;
+  font-family: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-copy {
+  padding: 8px 12px;
+  background: #2E7D32;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.btn-invite {
+  width: 100%;
+  padding: 10px;
+  background: #E8F5E9;
+  color: #2E7D32;
+  border: 1px solid #A5D6B0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.btn-invite:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-portal {
   width: 100%;

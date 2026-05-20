@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-const GLOBAL_MONTHLY_LIMIT = 200;
+const USER_MONTHLY_LIMIT = 5;
 
 export default function Home() {
   // Auth
@@ -32,19 +32,30 @@ export default function Home() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [analysisUsage, setAnalysisUsage] = useState(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [sharedInviteUrl, setSharedInviteUrl] = useState(null);
+  const [sharedInviteLoading, setSharedInviteLoading] = useState(false);
+  const [inviteToken, setInviteToken] = useState(null);
+  const [inviteModal, setInviteModal] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState(null);
 
-  const loadWines = async (userId) => {
-    const { data, error } = await supabase
-      .from('wines')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+  const loadWines = async (userId, partnerId = null) => {
+    let query = supabase.from('wines').select('*');
+    if (partnerId) {
+      query = query.or(`user_id.eq.${userId},user_id.eq.${partnerId}`);
+    } else {
+      query = query.eq('user_id', userId);
+    }
+    const { data, error } = await query.order('created_at', { ascending: false });
     if (!error) setWineCollection(data || []);
   };
 
   const loadProfile = async (userId) => {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
     setUserProfile(data ?? null);
+    if (data?.cellar_partner_id) {
+      loadWines(userId, data.cellar_partner_id);
+    }
   };
 
   const loadAllProfiles = async () => {
@@ -56,7 +67,7 @@ export default function Home() {
   };
 
   const loadUsage = async () => {
-    const { data } = await supabase.rpc('get_global_usage');
+    const { data } = await supabase.rpc('get_user_usage');
     setAnalysisUsage(data?.used ?? 0);
   };
 
@@ -77,16 +88,27 @@ export default function Home() {
       const params = new URLSearchParams(window.location.search);
       if (params.get('payment') === 'success') {
         window.history.replaceState({}, '', '/');
-        alert('✅ Assinatura confirmada! Bem-vindo ao Premium!');
+        alert('✅ Assinatura confirmada! Bem-vindo ao plano Premium!');
         if (session?.user) loadProfile(session.user.id);
+      }
+      const inviteParam = params.get('invite');
+      if (inviteParam) {
+        setInviteToken(inviteParam);
+        window.history.replaceState({}, '', '/');
+        if (session?.user) setInviteModal(true);
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (_event === 'PASSWORD_RECOVERY') { setAuthMode('update-password'); return; }
+      if (_event === 'PASSWORD_RECOVERY') { setUser(null); setAuthMode('update-password'); return; }
       setUser(session?.user ?? null);
-      if (session?.user) { loadWines(session.user.id); loadProfile(session.user.id); loadUsage(); }
-      else { setWineCollection([]); setUserProfile(null); setAnalysisUsage(null); }
+      if (session?.user) {
+        loadProfile(session.user.id);
+        loadUsage();
+        setInviteToken(prev => { if (prev) setInviteModal(true); return prev; });
+      } else {
+        setWineCollection([]); setUserProfile(null); setAnalysisUsage(null);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -127,8 +149,16 @@ export default function Home() {
     const { error } = await supabase.auth.resetPasswordForEmail(authEmail, {
       redirectTo: window.location.origin,
     });
-    if (error) setAuthError(error.message);
-    else setAuthError('✓ Link enviado! Verifique seu e-mail para redefinir a senha.');
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('rate limit') || msg.includes('too many')) {
+        setAuthError('Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.');
+      } else {
+        setAuthError(error.message);
+      }
+    } else {
+      setAuthError('✓ Link enviado! Verifique seu e-mail para redefinir a senha.');
+    }
     setAuthSubmitting(false);
   };
 
@@ -152,13 +182,14 @@ export default function Home() {
     setActiveTab('home');
   };
 
-  const handleCheckout = async () => {
-    setCheckoutLoading(true);
+  const handleCheckout = async (plan) => {
+    setCheckoutLoading(plan);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ plan }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -166,6 +197,47 @@ export default function Home() {
     } catch (err) {
       alert(`Erro ao iniciar pagamento: ${err.message}`);
       setCheckoutLoading(false);
+    }
+  };
+
+  const handleCreateInvite = async () => {
+    setSharedInviteLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/invite/create', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSharedInviteUrl(`${window.location.origin}?invite=${data.token}`);
+    } catch (err) {
+      alert(`Erro ao gerar convite: ${err.message}`);
+    } finally {
+      setSharedInviteLoading(false);
+    }
+  };
+
+  const handleAcceptInvite = async () => {
+    setInviteLoading(true);
+    setInviteError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/invite/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ token: inviteToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setInviteModal(false);
+      setInviteToken(null);
+      await loadProfile(user.id);
+      alert('✅ Adega compartilhada ativada!');
+    } catch (err) {
+      setInviteError(err.message);
+    } finally {
+      setInviteLoading(false);
     }
   };
 
@@ -500,21 +572,73 @@ export default function Home() {
               </div>
               {userProfile?.is_premium ? (
                 <>
-                  <p className="usage-indicator premium-active">✨ Plano Premium — análises ilimitadas</p>
+                  <p className="usage-indicator premium-active">
+                    {userProfile.subscription_plan === 'shared' ? '🍾 Plano Adega Compartilhada — análises ilimitadas' : '⭐ Plano Análises Ilimitadas'}
+                  </p>
+                  {userProfile.subscription_plan === 'shared' && (
+                    <div className="shared-cellar-box">
+                      {userProfile.cellar_partner_id ? (
+                        <p className="shared-cellar-status">✅ Adega compartilhada ativa com seu parceiro</p>
+                      ) : (
+                        <>
+                          <p className="shared-cellar-status">Convide seu parceiro para compartilhar a adega:</p>
+                          {sharedInviteUrl ? (
+                            <div className="invite-url-box">
+                              <input className="invite-url-input" readOnly value={sharedInviteUrl} />
+                              <button className="btn-copy" onClick={() => {
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                  navigator.clipboard.writeText(sharedInviteUrl).then(() => alert('Link copiado!')).catch(() => {
+                                    const el = document.querySelector('.invite-url-input');
+                                    el.select(); el.setSelectionRange(0, 99999);
+                                    document.execCommand('copy');
+                                    alert('Link copiado!');
+                                  });
+                                } else {
+                                  const el = document.querySelector('.invite-url-input');
+                                  el.select(); el.setSelectionRange(0, 99999);
+                                  document.execCommand('copy');
+                                  alert('Link copiado!');
+                                }
+                              }}>Copiar</button>
+                            </div>
+                          ) : (
+                            <button className="btn-invite" onClick={handleCreateInvite} disabled={sharedInviteLoading}>
+                              {sharedInviteLoading ? 'Gerando...' : '🔗 Gerar link de convite'}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                   <button className="btn-portal" onClick={handlePortal}>Gerenciar assinatura</button>
                 </>
               ) : analysisUsage !== null && (
                 <>
-                  <p className={`usage-indicator${GLOBAL_MONTHLY_LIMIT - analysisUsage <= 20 ? ' usage-low' : ''}`}>
-                    {GLOBAL_MONTHLY_LIMIT - analysisUsage <= 0
-                      ? '⚠️ Serviço de análise indisponível este mês'
-                      : `${GLOBAL_MONTHLY_LIMIT - analysisUsage} de ${GLOBAL_MONTHLY_LIMIT} análises disponíveis este mês`}
+                  <p className={`usage-indicator${USER_MONTHLY_LIMIT - analysisUsage <= 2 ? ' usage-low' : ''}`}>
+                    {USER_MONTHLY_LIMIT - analysisUsage <= 0
+                      ? '⚠️ Limite de análises gratuitas atingido este mês'
+                      : `${USER_MONTHLY_LIMIT - analysisUsage} de ${USER_MONTHLY_LIMIT} análises gratuitas restantes`}
                   </p>
                   <div className="upgrade-card">
-                    <p className="upgrade-text">Quer análises ilimitadas? Assine o plano Premium por <strong>R$9,90/mês</strong></p>
-                    <button className="btn-upgrade" onClick={handleCheckout} disabled={checkoutLoading}>
-                      {checkoutLoading ? 'Aguarde...' : '⭐ Assinar Premium'}
-                    </button>
+                    <p className="upgrade-title">Escolha seu plano</p>
+                    <div className="plans-row">
+                      <div className="plan-option">
+                        <p className="plan-name">⭐ Análises Ilimitadas</p>
+                        <p className="plan-price">R$4,99<span>/mês</span></p>
+                        <p className="plan-desc">Analise quantos vinhos quiser, sem limite mensal</p>
+                        <button className="btn-upgrade" onClick={() => handleCheckout('premium')} disabled={checkoutLoading === 'premium'}>
+                          {checkoutLoading === 'premium' ? 'Aguarde...' : 'Assinar'}
+                        </button>
+                      </div>
+                      <div className="plan-option plan-option-featured">
+                        <p className="plan-name">🍾 Adega Compartilhada</p>
+                        <p className="plan-price">R$7,99<span>/mês</span></p>
+                        <p className="plan-desc">Análises ilimitadas + compartilhe sua adega com outra pessoa</p>
+                        <button className="btn-upgrade" onClick={() => handleCheckout('shared')} disabled={checkoutLoading === 'shared'}>
+                          {checkoutLoading === 'shared' ? 'Aguarde...' : 'Assinar'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
@@ -709,6 +833,24 @@ export default function Home() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── MODAL CONVITE ── */}
+      {inviteModal && (
+        <div className="modal-fundo" onClick={() => { setInviteModal(false); setInviteError(null); }}>
+          <div className="modal-painel" onClick={e => e.stopPropagation()}>
+            <div className="modal-alca" />
+            <div className="modal-titulo">🍾 Convite de adega compartilhada</div>
+            <p style={{ fontSize: '14px', color: '#666', textAlign: 'center', margin: '0 0 16px' }}>
+              Você foi convidado para compartilhar uma adega. Aceitar vai unir sua coleção de vinhos com a de quem te convidou.
+            </p>
+            {inviteError && <p className="auth-msg auth-error">{inviteError}</p>}
+            <button className="btn-salvar" onClick={handleAcceptInvite} disabled={inviteLoading}>
+              {inviteLoading ? 'Aguarde...' : '✅ Aceitar convite'}
+            </button>
+            <button className="btn-cancelar" onClick={() => { setInviteModal(false); setInviteError(null); }}>Recusar</button>
+          </div>
         </div>
       )}
 

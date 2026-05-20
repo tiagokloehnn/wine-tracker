@@ -22,20 +22,38 @@ export async function POST(request) {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
+    const plan = session.metadata.plan || 'premium';
     const { error } = await supabase.from('profiles').update({
       is_premium: true,
+      subscription_plan: plan,
       stripe_customer_id: session.customer,
       stripe_subscription_id: session.subscription,
     }).eq('id', session.metadata.user_id);
-    if (error) console.error('Erro ao ativar premium:', error.message);
+    if (error) console.error('Erro ao ativar plano:', error.message);
   }
 
   if (event.type === 'customer.subscription.deleted') {
     const sub = event.data.object;
-    const { error } = await supabase.from('profiles')
-      .update({ is_premium: false })
-      .eq('stripe_subscription_id', sub.id);
-    if (error) console.error('Erro ao desativar premium:', error.message);
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id, subscription_plan, cellar_partner_id')
+      .eq('stripe_subscription_id', sub.id)
+      .single();
+
+    if (profile) {
+      if (profile.subscription_plan === 'shared' && profile.cellar_partner_id) {
+        await supabase.from('profiles')
+          .update({ cellar_partner_id: null })
+          .eq('id', profile.cellar_partner_id);
+        await supabase.from('shared_cellar_invites')
+          .delete()
+          .eq('owner_id', profile.id);
+      }
+      const { error } = await supabase.from('profiles')
+        .update({ is_premium: false, subscription_plan: null, cellar_partner_id: null })
+        .eq('id', profile.id);
+      if (error) console.error('Erro ao desativar plano:', error.message);
+    }
   }
 
   return NextResponse.json({ received: true });

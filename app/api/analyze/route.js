@@ -19,10 +19,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Sessão inválida.' }, { status: 401 });
     }
 
-    const GLOBAL_MONTHLY_LIMIT = 200;
+    const USER_MONTHLY_LIMIT = 5;
     const { data: usageCheck, error: usageError } = await supabase.rpc('check_and_increment_usage', {
       p_user_id: user.id,
-      p_global_limit: GLOBAL_MONTHLY_LIMIT,
+      p_user_limit: USER_MONTHLY_LIMIT,
     });
     if (usageError) {
       return NextResponse.json({ error: `Erro ao verificar cota de uso: ${usageError.message}` }, { status: 500 });
@@ -32,7 +32,7 @@ export async function POST(request) {
       nextMonth.setMonth(nextMonth.getMonth() + 1, 1);
       const resetDate = nextMonth.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
       return NextResponse.json({
-        error: `O serviço atingiu o limite de análises este mês. Renovação em ${resetDate}.`,
+        error: `Você atingiu o limite de ${USER_MONTHLY_LIMIT} análises gratuitas este mês. Renovação em ${resetDate}.`,
         limitReached: true,
       }, { status: 429 });
     }
