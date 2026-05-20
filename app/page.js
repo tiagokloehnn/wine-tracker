@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const USER_MONTHLY_LIMIT = 5;
+const WINE_COLLECTION_LIMIT = 20;
 
 export default function Home() {
   // Auth
@@ -327,6 +328,11 @@ export default function Home() {
     if (!currentAnalysis || !user) return;
     const exists = wineCollection.some(w => w.wine_name.toLowerCase() === currentAnalysis.wine_name.toLowerCase());
     if (exists) { alert('Este vinho já está na sua coleção.'); return; }
+    const ownWines = wineCollection.filter(w => w.user_id === user.id).length;
+    if (!userProfile?.is_premium && ownWines >= WINE_COLLECTION_LIMIT) {
+      alert(`Você atingiu o limite de ${WINE_COLLECTION_LIMIT} vinhos no plano gratuito. Assine um plano para adicionar mais.`);
+      return;
+    }
     const { data, error } = await supabase.from('wines').insert({
       user_id: user.id,
       wine_name: currentAnalysis.wine_name,

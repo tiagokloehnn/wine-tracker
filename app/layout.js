@@ -3,7 +3,15 @@ import './globals.css';
 export const metadata = {
   title: 'Wine Tracker - Seu registro de vinhos',
   description: 'Fotografe vinhos e descubra quais você já provou',
-  appleWebApp: { capable: true, statusBarStyle: 'default' },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Wine Tracker',
+  },
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
+  },
 };
 
 export const viewport = {
