@@ -420,6 +420,11 @@ export default function Home() {
                   <div className="detail-row"><span className="detail-icon">🍇</span><span><strong>Uva</strong><br />{currentAnalysis.grape}</span></div>
                   <div className="detail-row"><span className="detail-icon">🎯</span><span><strong>Confiança</strong><br />{currentAnalysis.confidence}</span></div>
                 </div>
+                {currentAnalysis.description && (
+                  <div className="result-description">
+                    <p>{currentAnalysis.description}</p>
+                  </div>
+                )}
                 <div className={`status-pill ${wineExists ? 'pill-exists' : 'pill-new'}`}>
                   {wineExists ? '✓ Já está na sua coleção' : '✨ Novo vinho descoberto!'}
                 </div>

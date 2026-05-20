@@ -47,7 +47,7 @@ export async function POST(request) {
                 },
                 {
                   type: 'text',
-                  text: 'Analise esta imagem de vinho e responda APENAS em JSON (sem nenhum outro texto) com este formato: {"wine_name": "Nome do vinho", "wine_type": "Tipo (Tinto/Branco/Rosé/Espumante)", "region": "Região", "grape": "Variedade da uva", "confidence": "Alta/Média/Baixa"}. Se não for uma imagem de vinho, coloque null em wine_name.',
+                  text: 'Analise esta imagem de vinho e responda APENAS em JSON (sem nenhum outro texto) com este formato: {"wine_name": "Nome do vinho", "wine_type": "Tipo (Tinto/Branco/Rosé/Espumante)", "region": "Região", "grape": "Variedade da uva", "confidence": "Alta/Média/Baixa", "description": "Apresentação do vinho em 2 a 3 frases em português: origem, características principais e uma curiosidade histórica ou cultural"}. Se não for uma imagem de vinho, coloque null em wine_name e null em description.',
                 },
               ],
             },
