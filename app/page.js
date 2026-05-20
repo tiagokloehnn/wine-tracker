@@ -566,16 +566,16 @@ export default function Home() {
       {/* ── INÍCIO ── */}
       {activeTab === 'home' && (
         <div className="tab-content">
-          {!analysisResult && !loading && wineCollection.length === 0 && (
-            <div className="hero">
-              <div className="hero-icon">🍾</div>
-              <h2 className="hero-title">Bem-vindo ao Wine Tracker</h2>
-              <p className="hero-sub">Fotografe o rótulo de qualquer vinho e nossa IA identifica tudo para você.</p>
-            </div>
-          )}
-
-          {!analysisResult && (
-            <>
+          {!analysisResult && !loading && (
+            <div className="home-centered">
+              {wineCollection.length === 0 && (
+                <div className="hero">
+                  <div className="hero-icon">🍾</div>
+                  <h2 className="hero-title">Bem-vindo ao Wine Tracker</h2>
+                  <p className="hero-sub">Fotografe o rótulo de qualquer vinho e nossa IA identifica tudo para você.</p>
+                </div>
+              )}
+              <>
               <div className="scan-card">
                 <div className="scan-card-top">
                   <span className="scan-icon">🍷</span>
@@ -668,6 +668,7 @@ export default function Home() {
                 </>
               )}
             </>
+            </div>
           )}
 
           {loading && (

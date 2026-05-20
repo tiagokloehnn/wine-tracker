@@ -62,6 +62,13 @@ html, body {
 /* ── TAB CONTENT ── */
 .tab-content { padding: 16px; }
 
+.home-centered {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
 .section-title {
   font-size: 17px;
   font-weight: 700;
