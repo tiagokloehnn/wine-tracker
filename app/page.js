@@ -568,13 +568,39 @@ export default function Home() {
         <div className="tab-content">
           {!analysisResult && !loading && (
             <div className="home-centered">
-              {wineCollection.length === 0 && (
-                <div className="hero">
-                  <div className="hero-icon">🍾</div>
-                  <h2 className="hero-title">Bem-vindo ao Wine Tracker</h2>
-                  <p className="hero-sub">Fotografe o rótulo de qualquer vinho e nossa IA identifica tudo para você.</p>
-                </div>
-              )}
+              {(() => {
+                const bestRated = wineCollection.reduce((best, w) => {
+                  const r = w.feedback?.rating ?? 0;
+                  return r > (best?.feedback?.rating ?? 0) ? w : best;
+                }, null);
+                const hasBestRated = bestRated?.feedback?.rating > 0;
+                return (
+                  <div className="hero">
+                    {wineCollection.length === 0 ? (
+                      <>
+                        <div className="hero-icon">🍾</div>
+                        <h2 className="hero-title">Bem-vindo ao Wine Tracker</h2>
+                        <p className="hero-sub">Fotografe o rótulo de qualquer vinho e nossa IA identifica tudo para você.</p>
+                      </>
+                    ) : hasBestRated ? (
+                      <>
+                        <p className="hero-sub" style={{ marginBottom: '6px' }}>Sua melhor avaliação</p>
+                        <div className="hero-icon" style={{ fontSize: '36px', marginBottom: '8px' }}>🏆</div>
+                        <h2 className="hero-title">{bestRated.wine_name}</h2>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '6px' }}>
+                          <Estrelas nota={bestRated.feedback.rating} />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="hero-icon">🍷</div>
+                        <h2 className="hero-title">Sua adega</h2>
+                        <p className="hero-sub">{wineCollection.length} {wineCollection.length === 1 ? 'vinho cadastrado' : 'vinhos cadastrados'}</p>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
               <>
               <div className="scan-card">
                 <div className="scan-card-top">
