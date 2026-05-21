@@ -532,17 +532,17 @@ input[type="file"] { display: none; }
 /* ── EDIÇÃO DE NOME ── */
 .edit-wine-name-input {
   width: 100%;
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.3);
+  background: #F5F0EC;
+  border: 1.5px solid #C9A96E;
   border-radius: 8px;
-  color: #fff;
+  color: #2D0A14;
   font-size: 17px;
   font-weight: 700;
   padding: 6px 10px;
   margin-bottom: 8px;
   outline: none;
 }
-.edit-wine-name-input::placeholder { color: rgba(255,255,255,0.4); }
+.edit-wine-name-input::placeholder { color: #aaa; }
 
 .reserva-selector {
   display: flex;
@@ -553,9 +553,9 @@ input[type="file"] { display: none; }
 .reserva-btn {
   padding: 4px 10px;
   border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.3);
+  border: 1px solid #C9A96E;
   background: transparent;
-  color: rgba(255,255,255,0.7);
+  color: #7B2D42;
   font-size: 12px;
   cursor: pointer;
 }
