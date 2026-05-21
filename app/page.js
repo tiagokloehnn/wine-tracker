@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 
 const USER_MONTHLY_LIMIT = 5;
 const WINE_COLLECTION_LIMIT = 20;
+const mlAffiliateUrl = (wineName) =>
+  `https://lista.mercadolivre.com.br/${encodeURIComponent(`vinho ${wineName}`)}?matt_word=klti7397765&matt_tool=89900146`;
 
 export default function Home() {
   // Auth
@@ -39,6 +41,10 @@ export default function Home() {
   const [inviteModal, setInviteModal] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState(null);
+  const [editedWineName, setEditedWineName] = useState('');
+  const [wineReserva, setWineReserva] = useState('');
+  const [renamingWineId, setRenamingWineId] = useState(null);
+  const [renameName, setRenameName] = useState('');
 
   const loadWines = async (userId, partnerId = null) => {
     let query = supabase.from('wines').select('*');
@@ -308,6 +314,8 @@ export default function Home() {
       const { analysis } = data;
       if (analysis && analysis.wine_name) {
         setCurrentAnalysis(analysis);
+        setEditedWineName(analysis.wine_name);
+        setWineReserva('');
         setAnalysisResult(true);
         setActiveTab('home');
         setAnalysisUsage(prev => prev !== null ? prev + 1 : 1);
@@ -326,7 +334,8 @@ export default function Home() {
 
   const addToCollection = async () => {
     if (!currentAnalysis || !user) return;
-    const exists = wineCollection.some(w => w.wine_name.toLowerCase() === currentAnalysis.wine_name.toLowerCase());
+    const finalName = [editedWineName.trim(), wineReserva].filter(Boolean).join(' ') || currentAnalysis.wine_name;
+    const exists = wineCollection.some(w => w.wine_name.toLowerCase() === finalName.toLowerCase());
     if (exists) { alert('Este vinho já está na sua coleção.'); return; }
     const ownWines = wineCollection.filter(w => w.user_id === user.id).length;
     if (!userProfile?.is_premium && ownWines >= WINE_COLLECTION_LIMIT) {
@@ -335,7 +344,7 @@ export default function Home() {
     }
     const { data, error } = await supabase.from('wines').insert({
       user_id: user.id,
-      wine_name: currentAnalysis.wine_name,
+      wine_name: finalName,
       wine_type: currentAnalysis.wine_type,
       region: currentAnalysis.region,
       grape: currentAnalysis.grape,
@@ -348,6 +357,16 @@ export default function Home() {
     setAnalysisResult(false);
     setCurrentAnalysis(null);
     setActiveTab('collection');
+  };
+
+  const renameWine = async (id) => {
+    const trimmed = renameName.trim();
+    if (!trimmed) return;
+    const { error } = await supabase.from('wines').update({ wine_name: trimmed }).eq('id', id);
+    if (error) { alert(`Erro ao renomear: ${error.message}`); return; }
+    setWineCollection(prev => prev.map(w => w.id === id ? { ...w, wine_name: trimmed } : w));
+    setRenamingWineId(null);
+    setRenameName('');
   };
 
   const deleteWine = async (id) => {
@@ -397,7 +416,10 @@ export default function Home() {
     (w.grape || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const wineExists = currentAnalysis && wineCollection.some(w => w.wine_name.toLowerCase() === currentAnalysis.wine_name.toLowerCase());
+  const finalWineName = currentAnalysis
+    ? ([editedWineName.trim(), wineReserva].filter(Boolean).join(' ') || currentAnalysis.wine_name)
+    : '';
+  const wineExists = currentAnalysis && wineCollection.some(w => w.wine_name.toLowerCase() === finalWineName.toLowerCase());
 
   const typeBadgeClass = (type) => {
     const t = (type || '').toLowerCase();
@@ -425,7 +447,28 @@ export default function Home() {
     <div className="wine-card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>
-          <p className="wine-name">{vinho.wine_name}</p>
+          {exibirBotoes && renamingWineId === vinho.id ? (
+            <div className="rename-row">
+              <input
+                className="rename-input"
+                value={renameName}
+                onChange={e => setRenameName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') renameWine(vinho.id); if (e.key === 'Escape') setRenamingWineId(null); }}
+                autoFocus
+              />
+              <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                <button className="btn-rename-confirm" onClick={() => renameWine(vinho.id)}>✓ Salvar</button>
+                <button className="btn-rename-cancel" onClick={() => setRenamingWineId(null)}>Cancelar</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <p className="wine-name">{vinho.wine_name}</p>
+              {exibirBotoes && (
+                <button className="btn-rename-icon" onClick={() => { setRenamingWineId(vinho.id); setRenameName(vinho.wine_name); }}>✏️</button>
+              )}
+            </div>
+          )}
           <span className={`type-badge ${typeBadgeClass(vinho.wine_type)}`}>{vinho.wine_type}</span>
           <p className="wine-detail" style={{ marginTop: '8px' }}>📍 {vinho.region}</p>
           <p className="wine-detail">🍇 {vinho.grape}</p>
@@ -441,6 +484,11 @@ export default function Home() {
             </span>
           ))}
         </div>
+      )}
+      {exibirBotoes && vinho.feedback?.rating >= 4 && (
+        <a className="btn-ml-affiliate" href={mlAffiliateUrl(vinho.wine_name)} target="_blank" rel="noopener noreferrer">
+          🛒 Comprar no Mercado Livre
+        </a>
       )}
       {vinho.feedback && (
         <div className="resumo-degustacao">
@@ -711,7 +759,23 @@ export default function Home() {
                 <div className="result-top">
                   <span style={{ fontSize: '36px' }}>🍾</span>
                   <div style={{ flex: 1 }}>
-                    <div className="result-name">{currentAnalysis.wine_name}</div>
+                    <input
+                      className="edit-wine-name-input"
+                      value={editedWineName}
+                      onChange={e => setEditedWineName(e.target.value)}
+                      placeholder="Nome do vinho"
+                    />
+                    <div className="reserva-selector">
+                      {['', 'Reserva', 'Gran Reserva'].map(opt => (
+                        <button
+                          key={opt || 'none'}
+                          className={`reserva-btn${wineReserva === opt ? ' active' : ''}`}
+                          onClick={() => setWineReserva(opt)}
+                        >
+                          {opt || 'Sem classificação'}
+                        </button>
+                      ))}
+                    </div>
                     <span className={`type-badge ${typeBadgeClass(currentAnalysis.wine_type)}`}>{currentAnalysis.wine_type}</span>
                   </div>
                 </div>
@@ -747,6 +811,9 @@ export default function Home() {
                   {wineExists ? '✓ Já está na sua coleção' : '✨ Novo vinho descoberto!'}
                 </div>
               </div>
+              <a className="btn-ml-affiliate" href={mlAffiliateUrl(currentAnalysis.wine_name)} target="_blank" rel="noopener noreferrer">
+                🛒 Comprar no Mercado Livre
+              </a>
               {!wineExists && (
                 <button className="btn-primary" onClick={addToCollection}>➕ Adicionar à minha coleção</button>
               )}
