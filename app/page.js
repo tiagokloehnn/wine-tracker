@@ -14,6 +14,7 @@ export default function Home() {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [authMode, setAuthMode] = useState('login');
   const [authEmail, setAuthEmail] = useState('');
+  const [authName, setAuthName] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authConfirm, setAuthConfirm] = useState('');
   const [authError, setAuthError] = useState(null);
@@ -139,11 +140,12 @@ export default function Home() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (!authName.trim()) { setAuthError('Informe seu nome.'); return; }
     if (authPassword !== authConfirm) { setAuthError('As senhas não coincidem.'); return; }
     if (authPassword.length < 6) { setAuthError('A senha deve ter pelo menos 6 caracteres.'); return; }
     setAuthError(null);
     setAuthSubmitting(true);
-    const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+    const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword, options: { data: { display_name: authName.trim() } } });
     if (error) setAuthError(error.message);
     else setAuthError('✓ Conta criada! Verifique seu e-mail para confirmar o cadastro.');
     setAuthSubmitting(false);
@@ -531,7 +533,7 @@ export default function Home() {
 
         {authMode !== 'reset' && authMode !== 'update-password' && (
           <div className="auth-tabs">
-            <button className={`auth-tab ${authMode === 'login' ? 'active' : ''}`} onClick={() => { setAuthMode('login'); setAuthError(null); }}>Entrar</button>
+            <button className={`auth-tab ${authMode === 'login' ? 'active' : ''}`} onClick={() => { setAuthMode('login'); setAuthError(null); setAuthName(''); }}>Entrar</button>
             <button className={`auth-tab ${authMode === 'register' ? 'active' : ''}`} onClick={() => { setAuthMode('register'); setAuthError(null); }}>Criar conta</button>
           </div>
         )}
@@ -557,6 +559,9 @@ export default function Home() {
           </form>
         ) : (
           <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="auth-form">
+            {authMode === 'register' && (
+              <input type="text" className="auth-input" placeholder="Seu nome" value={authName} onChange={e => setAuthName(e.target.value)} required autoComplete="name" />
+            )}
             <input type="email" className="auth-input" placeholder="E-mail" value={authEmail} onChange={e => setAuthEmail(e.target.value)} required autoComplete="email" />
             <input type="password" className="auth-input" placeholder="Senha" value={authPassword} onChange={e => setAuthPassword(e.target.value)} required autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} />
             {authMode === 'register' && (
@@ -591,7 +596,7 @@ export default function Home() {
           <div className="header-sub">Sua adega pessoal</div>
         </div>
         <div className="header-user">
-          <span className="header-email">{user.email}</span>
+          <span className="header-email">{user.user_metadata?.display_name || user.email}</span>
           <button className="btn-logout" onClick={handleLogout}>Sair</button>
         </div>
       </div>
@@ -917,7 +922,9 @@ export default function Home() {
               </button>
             </div>
           ) : (
-            wineCollection.map(vinho => <CardVinho key={vinho.id} vinho={vinho} exibirBotoes={true} />)
+            <div className="wine-list">
+              {wineCollection.map(vinho => <CardVinho key={vinho.id} vinho={vinho} exibirBotoes={true} />)}
+            </div>
           )}
         </div>
       )}
@@ -937,7 +944,9 @@ export default function Home() {
               {searchQuery ? `😕 Nenhum resultado para "${searchQuery}".` : 'Digite para buscar na sua coleção.'}
             </div>
           ) : (
-            searchResults.map(vinho => <CardVinho key={vinho.id} vinho={vinho} exibirBotoes={false} />)
+            <div className="wine-list">
+              {searchResults.map(vinho => <CardVinho key={vinho.id} vinho={vinho} exibirBotoes={false} />)}
+            </div>
           )}
         </div>
       )}
